@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/components/GalleryPanel.tsx","./src/components/LoginScreen.tsx","./src/components/Modals.tsx","./src/components/Panel.tsx","./src/components/StageOverlays.tsx","./src/hooks/useAuth.ts","./src/hooks/useProfile.ts","./src/lib/engine.ts","./src/lib/firebase.ts"],"version":"5.9.3"}
