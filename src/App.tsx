@@ -212,7 +212,7 @@ export default function App() {
           style={{ left: dot.x, top: dot.y, width: dot.size, height: dot.size, background: dot.color, boxShadow: dot.glow }}
         />
       )}
-
+ 
       {stage === 'app' && (
         <>
           <div id="hint">{hint}</div>
