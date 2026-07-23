@@ -12,6 +12,7 @@ export interface HistorySnap {
 export function useProfile() {
   const [nickname, setNickname] = useState<string | null>(null);
   const [bio, setBio] = useState('');
+  const [subscribed, setSubscribedState] = useState(false);
   const [drawings, setDrawings] = useState<Record<string, Stroke[]>>({});
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, HistorySnap[]>>({});
@@ -25,6 +26,7 @@ export function useProfile() {
     userRef.current = user;
     let nn: string | null = null;
     let bb = '';
+    let sub = false;
     let dr: Record<string, Stroke[]> = {};
     let fv: Record<string, boolean> = {};
     let hs: Record<string, HistorySnap[]> = {};
@@ -38,6 +40,7 @@ export function useProfile() {
         hs = data.history || {};
         nn = data.nickname || null;
         bb = data.bio || '';
+        sub = !!data.subscribed;
         cur = data.current && dr[data.current] ? data.current : Object.keys(dr)[0] || 'Untitled';
       }
     } catch (e) {
@@ -45,6 +48,7 @@ export function useProfile() {
     }
     setNickname(nn);
     setBio(bb);
+    setSubscribedState(sub);
     setDrawings(dr);
     setFavorites(fv);
     setHistory(hs);
@@ -71,6 +75,17 @@ export function useProfile() {
     async (nn: string) => {
       setNickname(nn);
       await persist({ nickname: nn, email: userRef.current?.email });
+    },
+    [persist]
+  );
+
+  // NOTE: this just flips a flag on the profile doc — there's no real payment
+  // step here. Wire this up to a Stripe/RevenueCat webhook (or similar) that
+  // sets `subscribed: true` server-side once a payment actually succeeds.
+  const setSubscribed = useCallback(
+    async (value: boolean) => {
+      setSubscribedState(value);
+      await persist({ subscribed: value, email: userRef.current?.email });
     },
     [persist]
   );
@@ -279,6 +294,7 @@ export function useProfile() {
     userRef.current = null;
     setNickname(null);
     setBio('');
+    setSubscribedState(false);
     setDrawings({});
     setFavorites({});
     setHistory({});
@@ -289,6 +305,8 @@ export function useProfile() {
   return {
     nickname,
     bio,
+    subscribed,
+    setSubscribed,
     drawings,
     favorites,
     history,

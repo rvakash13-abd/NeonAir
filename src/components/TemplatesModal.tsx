@@ -1,0 +1,113 @@
+import { useState } from 'react';
+import { templateCategories, templatesByCategory, type Template } from '../lib/templates';
+
+interface Props {
+  onClose: () => void;
+  subscribed: boolean;
+  onSubscribe: () => Promise<void>;
+  onPick: (tpl: Template) => Promise<void>;
+}
+
+export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPick }: Props) {
+  const [activeCat, setActiveCat] = useState(templateCategories[0] || '');
+  const [subscribing, setSubscribing] = useState(false);
+  const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+
+  const items = templatesByCategory[activeCat] || [];
+
+  async function handlePick(tpl: Template) {
+    if (!subscribed) return;
+    setLoadingUrl(tpl.url);
+    try {
+      await onPick(tpl);
+      onClose();
+    } finally {
+      setLoadingUrl(null);
+    }
+  }
+
+  async function handleSubscribe() {
+    setSubscribing(true);
+    try {
+      await onSubscribe();
+    } finally {
+      setSubscribing(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box" style={{ width: 320 }}>
+        <h3>Trace Templates</h3>
+
+        {!templateCategories.length ? (
+          <div className="stat-row">No templates found yet — drop images into Subscription/&lt;Category&gt;/.</div>
+        ) : (
+          <>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {templateCategories.map((cat) => (
+                <div
+                  key={cat}
+                  onClick={() => setActiveCat(cat)}
+                  className="gbtn"
+                  style={{
+                    width: 'auto',
+                    padding: '5px 10px',
+                    cursor: 'pointer',
+                    background: cat === activeCat ? 'rgba(0,220,255,0.18)' : undefined,
+                    color: cat === activeCat ? 'var(--text)' : undefined,
+                    borderColor: cat === activeCat ? 'rgba(0,220,255,0.4)' : undefined,
+                  }}
+                >
+                  {cat}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {items.map((tpl) => (
+                <div
+                  key={tpl.url}
+                  onClick={() => handlePick(tpl)}
+                  className="relative rounded-lg overflow-hidden border border-white/10 cursor-pointer bg-white/5 aspect-square"
+                >
+                  <img
+                    src={tpl.url}
+                    alt={tpl.name}
+                    className="w-full h-full object-cover"
+                    style={{ filter: subscribed ? 'none' : 'blur(3px) brightness(0.5)' }}
+                  />
+                  {!subscribed && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white/70 text-base">🔒</div>
+                  )}
+                  {loadingUrl === tpl.url && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] text-white">
+                      Loading…
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 inset-x-0 text-[9px] text-center py-0.5 bg-black/55 text-white/80 truncate px-1">
+                    {tpl.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!subscribed && (
+          <div className="mt-3 p-3 rounded-xl border border-cyan-400/25 bg-cyan-400/5 text-center">
+            <div className="text-[12px] text-white/80 mb-1 font-medium">Unlock the trace library</div>
+            <div className="text-[10.5px] text-white/45 mb-2.5 leading-relaxed">
+              Subscribers get every outline template, loaded as a background you draw over.
+            </div>
+            <button className="auth-submit" disabled={subscribing} onClick={handleSubscribe}>
+              {subscribing ? 'Processing…' : 'Subscribe'}
+            </button>
+          </div>
+        )}
+
+        <div className="gbtn mt-3 text-center" onClick={onClose}>Close</div>
+      </div>
+    </div>
+  );
+}

@@ -9,6 +9,8 @@ import { NicknameScreen, WelcomeScreen, LoadOverlay, ConfigMissingScreen } from 
 import Panel from './components/Panel';
 import GalleryPanel from './components/GalleryPanel';
 import { StatsModal, HistoryModal, ProfileModal } from './components/Modals';
+import TemplatesModal from './components/TemplatesModal';
+import type { Template } from './lib/templates';
 
 const CHALLENGES = [
   'Draw a creature that lives in clouds', 'Draw your morning coffee', 'Draw a robot pet',
@@ -64,7 +66,7 @@ export default function App() {
   const [zoomShow, setZoomShow] = useState(false);
   const [dot, setDot] = useState({ show: false, x: 0, y: 0, size: 0, color: '', glow: '' });
 
-  const [modal, setModal] = useState<null | 'stats' | 'history' | 'profile'>(null);
+  const [modal, setModal] = useState<null | 'stats' | 'history' | 'profile' | 'templates'>(null);
   const [strokesTick, setStrokesTick] = useState(0); // bump to re-render stats/history reading engine
 
   const challengeText = useRef(todaysChallenge()).current;
@@ -170,6 +172,10 @@ export default function App() {
   const onPipFlip = () => eng().flipPip();
   const onTransparentToggle = () => setTransparentExport(eng().toggleTransparentExport());
   const onExport = () => eng().exportPNG(profile.currentName);
+  const onPickTemplate = async (tpl: Template) => {
+    await eng().setBgImageFromUrl(tpl.url);
+    setCamPaused(true);
+  };
   const onReplay = () => eng().replay();
   const onRecord = () => {
     if (recording) return;
@@ -269,6 +275,7 @@ export default function App() {
             onDuplicate={(name) => profile.duplicateDrawing(name, eng())}
             onDelete={(name) => profile.deleteDrawing(name, eng())}
             onNew={(name) => profile.newDrawing(name, eng())}
+            onTemplates={() => setModal('templates')}
             onStats={() => setModal('stats')}
             onHistory={() => setModal('history')}
             onProfile={() => setModal('profile')}
@@ -289,6 +296,14 @@ export default function App() {
               onClose={() => setModal(null)}
               history={profile.history[profile.currentName] || []}
               onRestore={(snap) => { profile.restoreVersion(snap, eng()); setModal(null); }}
+            />
+          )}
+          {modal === 'templates' && (
+            <TemplatesModal
+              onClose={() => setModal(null)}
+              subscribed={profile.subscribed}
+              onSubscribe={() => profile.setSubscribed(true)}
+              onPick={onPickTemplate}
             />
           )}
           {modal === 'profile' && (

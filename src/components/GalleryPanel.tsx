@@ -13,6 +13,7 @@ interface Props {
   onDuplicate: (name: string) => void;
   onDelete: (name: string) => void;
   onNew: (name: string) => void;
+  onTemplates: () => void;
   onStats: () => void;
   onHistory: () => void;
   onProfile: () => void;
@@ -70,6 +71,7 @@ export default function GalleryPanel(p: Props) {
         onChange={(e) => setNewName(e.target.value)}
       />
       <div className="gbtn" onClick={() => { p.onNew(newName); setNewName(''); }}>+ New Drawing</div>
+      <div className="gbtn" onClick={p.onTemplates}>🖍 Trace Templates</div>
       <div className="gbtn" onClick={p.onProfile}>👤 My Profile</div>
       <div className="gallery-row">
         <div className="gbtn" onClick={p.onStats}>📊 Stats</div>

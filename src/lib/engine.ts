@@ -225,6 +225,23 @@ export class DrawEngine {
     reader.readAsDataURL(file);
   }
 
+  // Used by the template/trace gallery: loads a bundled outline image as the
+  // paused background so the user can draw over it. Returns a promise so the
+  // caller can close the picker / update UI once it's actually on screen.
+  setBgImageFromUrl(url: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        this.bgImage = img;
+        this.camPaused = true;
+        resolve();
+      };
+      img.onerror = () => reject(new Error('Failed to load template image'));
+      img.src = url;
+    });
+  }
+
   undo() {
     this.strokes.pop();
     this.redrawAll();
@@ -679,7 +696,7 @@ export class DrawEngine {
     } else if (this.camPaused && this.bgImage) {
       this.bgCtx.fillStyle = '#000';
       this.bgCtx.fillRect(0, 0, W, H);
-      const scale = Math.max(W / this.bgImage.width, H / this.bgImage.height);
+      const scale = Math.min(W / this.bgImage.width, H / this.bgImage.height);
       const iw = this.bgImage.width * scale,
         ih = this.bgImage.height * scale;
       this.bgCtx.drawImage(this.bgImage, (W - iw) / 2, (H - ih) / 2, iw, ih);
