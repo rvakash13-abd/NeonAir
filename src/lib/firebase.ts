@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  inMemoryPersistence,
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Same "Neon-Air" Firebase project as the original app.
@@ -15,5 +20,9 @@ const firebaseConfig = {
 export const firebaseIsConfigured = firebaseConfig.apiKey !== 'YOUR_API_KEY';
 
 export const app = firebaseIsConfigured ? initializeApp(firebaseConfig) : null;
-export const auth = app ? getAuth(app) : null;
+export const auth = app
+  ? initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence],
+    })
+  : null;
 export const db = app ? getFirestore(app) : null;
