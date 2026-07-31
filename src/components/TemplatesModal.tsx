@@ -103,7 +103,7 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
 
       {showPay && (
         <RazorpayModal
-          title="Neon Air Pro"
+          title="Scribble Air Pro"
           description="Unlimited drawings + full trace template library"
           amount={99}
           onClose={() => setShowPay(false)}

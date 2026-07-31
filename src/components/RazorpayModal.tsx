@@ -75,7 +75,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
       key: keyId,
       amount: Math.round(amount * 100),
       currency: 'INR',
-      name: 'Neon Air Draw',
+      name: 'Scribble Air Draw',
       description: title,
       handler: async function (response: any) {
         setStep('success');

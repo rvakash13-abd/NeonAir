@@ -65,7 +65,7 @@ export function WelcomeScreen({
         className="font-display italic text-3xl bg-clip-text text-transparent text-center"
         style={{ backgroundImage: 'linear-gradient(90deg, #00dcff, #b450ff)' }}
       >
-        Welcome to NeonAir{nickname ? `, ${nickname}` : ''}!
+        Welcome to Scribble Air Draw{nickname ? `, ${nickname}` : ''}!
       </div>
       <div className="text-[12.5px] text-white/45 text-center max-w-xs">
         {isNew
@@ -89,7 +89,7 @@ export function LoadOverlay({ pct, msg }: { pct: number; msg: string }) {
       >
         <div className="w-[38px] h-[38px] rounded-full border-[3px] border-white/[0.07] border-t-cyan-neon animate-spin" />
         <div className="font-display italic text-2xl text-[#00dcff]" style={{ textShadow: '0 0 30px rgba(0,220,255,0.5)' }}>
-          Neon Air Draw
+          Scribble Air Draw
         </div>
         <div className="w-[200px] h-[3px] bg-white/[0.08] rounded overflow-hidden">
           <motion.div

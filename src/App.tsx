@@ -335,7 +335,7 @@ export default function App() {
 
           {showDrawingPaywall && (
             <RazorpayModal
-              title="Neon Air Pro"
+              title="Scribble Air Pro"
               description="You've used your 2 free drawings. Subscribe for unlimited drawings."
               amount={99}
               onClose={() => setShowDrawingPaywall(false)}
