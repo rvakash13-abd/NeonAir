@@ -12,7 +12,13 @@ interface Props {
   loading: boolean;
 }
 
-const WORD = 'Neon Air';
+// Split into words up front — each word is its own non-breaking unit,
+// so the browser can only wrap the line *between* words, never inside one.
+const WORDS = ['Scribble', 'Air', 'Draw'];
+// Precompute a global character index per letter (ignoring the word
+// boundary) so the stagger animation delay and the cyan/white color
+// split still read the same as the original single-string version.
+const FLAT = WORDS.join('');
 
 function EyeIcon({ off }: { off?: boolean }) {
   return off ? (
@@ -77,7 +83,7 @@ export default function LoginScreen({ onLogin, onSignup, onResetPassword, loadin
 
       <div className="relative z-10 w-full max-w-5xl px-6 md:px-12 py-10 grid md:grid-cols-[1.15fr_0.85fr] gap-10 md:gap-4 items-center">
         {/* ── brand / hero side ── */}
-        <div className="flex flex-col items-start">
+        <div className="flex flex-col items-start md:max-w-[620px]">
           <motion.div
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -87,23 +93,40 @@ export default function LoginScreen({ onLogin, onSignup, onResetPassword, loadin
             Webcam &middot; Hand tracking &middot; Light
           </motion.div>
 
-          <h1 className="font-display italic text-[15vw] md:text-[5.2vw] leading-[0.95] text-white flex flex-wrap">
-            {WORD.split('').map((ch, i) => (
-              <motion.span
-                key={i}
-                initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{ delay: 0.15 + i * 0.045, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  display: ch === ' ' ? 'inline-block' : 'inline-block',
-                  width: ch === ' ' ? '0.28em' : undefined,
-                  color: i > 4 ? '#00dcff' : '#fff',
-                  textShadow: i > 4 ? '0 0 28px rgba(0,220,255,0.55)' : 'none',
-                }}
-              >
-                {ch === ' ' ? '\u00A0' : ch}
-              </motion.span>
-            ))}
+          {/*
+            Headline: sized with clamp() against the column width instead of
+            raw vw (which was sized against the full viewport, not the
+            ~60% column the grid actually gives it — that's what forced the
+            mid-word wrap). Words are wrapped individually with
+            whitespace-nowrap so any line break can only happen between
+            words, never inside one.
+          */}
+          <h1 className="font-display italic text-[clamp(2.1rem,4.6vw,4.75rem)] leading-[0.95] text-white flex flex-wrap gap-x-[0.28em]">
+            {WORDS.map((word, wi) => {
+              const globalOffset = WORDS.slice(0, wi).join('').length;
+              return (
+                <span key={wi} className="inline-block whitespace-nowrap">
+                  {word.split('').map((ch, i) => {
+                    const idx = globalOffset + i;
+                    return (
+                      <motion.span
+                        key={i}
+                        initial={{ opacity: 0, y: 18, filter: 'blur(6px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ delay: 0.15 + idx * 0.045, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          display: 'inline-block',
+                          color: idx > 4 ? '#00dcff' : '#fff',
+                          textShadow: idx > 4 ? '0 0 28px rgba(0,220,255,0.55)' : 'none',
+                        }}
+                      >
+                        {ch}
+                      </motion.span>
+                    );
+                  })}
+                </span>
+              );
+            })}
           </h1>
 
           <motion.p
