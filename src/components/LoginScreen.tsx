@@ -135,8 +135,7 @@ export default function LoginScreen({ onLogin, onSignup, onResetPassword, loadin
             transition={{ delay: 0.65, duration: 0.6 }}
             className="mt-5 max-w-sm text-[13.5px] leading-relaxed text-white/50"
           >
-            Point a finger at your camera and paint in mid-air. Every stroke glows, saves to
-            your account, and follows you to any device.
+            Turn the air into your magical canvas! Point your finger, create fun drawings, watch them glow, and save your artwork to enjoy anywhere.
           </motion.p>
 
           <motion.div
