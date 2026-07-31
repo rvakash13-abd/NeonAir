@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { templateCategories, templatesByCategory, type Template } from '../lib/templates';
+import RazorpayModal from './RazorpayModal';
 
 interface Props {
   onClose: () => void;
@@ -10,8 +11,8 @@ interface Props {
 
 export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPick }: Props) {
   const [activeCat, setActiveCat] = useState(templateCategories[0] || '');
-  const [subscribing, setSubscribing] = useState(false);
   const [loadingUrl, setLoadingUrl] = useState<string | null>(null);
+  const [showPay, setShowPay] = useState(false);
 
   const items = templatesByCategory[activeCat] || [];
 
@@ -23,15 +24,6 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
       onClose();
     } finally {
       setLoadingUrl(null);
-    }
-  }
-
-  async function handleSubscribe() {
-    setSubscribing(true);
-    try {
-      await onSubscribe();
-    } finally {
-      setSubscribing(false);
     }
   }
 
@@ -100,14 +92,24 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
             <div className="text-[10.5px] text-white/45 mb-2.5 leading-relaxed">
               Subscribers get every outline template, loaded as a background you draw over.
             </div>
-            <button className="auth-submit" disabled={subscribing} onClick={handleSubscribe}>
-              {subscribing ? 'Processing…' : 'Subscribe'}
+            <button className="auth-submit" onClick={() => setShowPay(true)}>
+              Subscribe — ₹99/mo
             </button>
           </div>
         )}
 
         <div className="gbtn mt-3 text-center" onClick={onClose}>Close</div>
       </div>
+
+      {showPay && (
+        <RazorpayModal
+          title="Neon Air Pro"
+          description="Unlimited drawings + full trace template library"
+          amount={99}
+          onClose={() => setShowPay(false)}
+          onSuccess={onSubscribe}
+        />
+      )}
     </div>
   );
 }
