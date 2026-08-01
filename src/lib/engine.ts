@@ -32,7 +32,6 @@ export interface EngineCallbacks {
 }
 
 const SMOOTH = 5;
-const STOP_CONFIRM_FRAMES = 5;
 const PEACE_CONFIRM_FRAMES = 4;
 const HAND_MISS_GRACE_FRAMES = 6;
 const UP_FRACTION = 0.22;
@@ -102,7 +101,6 @@ export class DrawEngine {
   posHist: Pt[] = [];
 
   confirmedGesture: 'none' | 'draw' | 'peace' = 'none';
-  noneStreak = 0;
   peaceStreak = 0;
   handMissStreak = 0;
 
@@ -722,7 +720,6 @@ export class DrawEngine {
       this.cb.onModeBadge('', '');
       this.cb.onHint(DEFAULT_HINT);
       this.confirmedGesture = 'none';
-      this.noneStreak = 0;
       this.peaceStreak = 0;
       return;
     }
@@ -736,16 +733,13 @@ export class DrawEngine {
     const rawGesture = this.getGesture(lm);
     let g: 'none' | 'draw' | 'peace';
     if (rawGesture === 'none') {
-      this.noneStreak++;
+      // Fist / closed hand — stop drawing immediately, no confirm delay.
+      // (Debounce is only useful for the draw<->peace ambiguity below; a
+      // closed fist is unambiguous and should cut the stroke right away.)
       this.peaceStreak = 0;
-      if (this.noneStreak >= STOP_CONFIRM_FRAMES) {
-        this.confirmedGesture = 'none';
-        g = 'none';
-      } else {
-        g = this.confirmedGesture;
-      }
+      this.confirmedGesture = 'none';
+      g = 'none';
     } else if (rawGesture === 'peace') {
-      this.noneStreak = 0;
       this.peaceStreak++;
       if (this.peaceStreak >= PEACE_CONFIRM_FRAMES) {
         this.confirmedGesture = 'peace';
@@ -754,7 +748,6 @@ export class DrawEngine {
         g = this.confirmedGesture === 'peace' ? 'peace' : 'draw';
       }
     } else {
-      this.noneStreak = 0;
       this.peaceStreak = 0;
       this.confirmedGesture = 'draw';
       g = 'draw';
@@ -869,6 +862,7 @@ export class DrawEngine {
       return;
     }
 
+    // g === 'none' -> fist detected, stop immediately.
     this.commitActiveStroke();
     this.commitShape();
     this.cb.onModeBadge('', '');
