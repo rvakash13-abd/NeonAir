@@ -22,7 +22,7 @@ export function useProfile() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const drawStart = useRef(Date.now());
 
-  const load = useCallback(async (user: User, engine: DrawEngine) => {
+const load = useCallback(async (user: User, engine: DrawEngine) => {
     userRef.current = user;
     let nn: string | null = null;
     let bb = '';
@@ -30,7 +30,6 @@ export function useProfile() {
     let dr: Record<string, Stroke[]> = {};
     let fv: Record<string, boolean> = {};
     let hs: Record<string, HistorySnap[]> = {};
-    let cur = 'Untitled';
     try {
       const snap = await getDoc(doc(db!, 'profiles', user.uid));
       if (snap.exists()) {
@@ -41,11 +40,23 @@ export function useProfile() {
         nn = data.nickname || null;
         bb = data.bio || '';
         sub = !!data.subscribed;
-        cur = data.current && dr[data.current] ? data.current : Object.keys(dr)[0] || 'Untitled';
       }
     } catch (e) {
       console.error('Failed to load saved drawings:', e);
     }
+
+    // Always start a fresh, blank drawing on login/reopen instead of
+    // resuming the last-open one. Existing saved drawings are untouched
+    // and stay browsable in the gallery — this just picks a name that
+    // doesn't collide with any of them for the new blank session.
+    let cur = 'Untitled';
+    let n = 2;
+    while (dr[cur]) {
+      cur = 'Untitled ' + n;
+      n++;
+    }
+    dr = { ...dr, [cur]: [] };
+
     setNickname(nn);
     setBio(bb);
     setSubscribedState(sub);
@@ -54,7 +65,7 @@ export function useProfile() {
     setHistory(hs);
     setCurrentName(cur);
     drawStart.current = Date.now();
-    engine.setStrokes(dr[cur] ? JSON.parse(JSON.stringify(dr[cur])) : []);
+    engine.setStrokes([]);
     return nn;
   }, []);
 

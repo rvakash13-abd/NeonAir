@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 interface Props {
   title: string;
@@ -56,61 +56,62 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
   }
 
   async function pay() {
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
-
-    if (!keyId) {
-      setStep('failed');
-      return;
-    }
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_1DP5mmOlF5G5ag';
+    const isDemoKey = !import.meta.env.VITE_RAZORPAY_KEY_ID;
 
     setStep('processing');
 
-    const loaded = await loadRazorpayScript();
-    if (!loaded || !(window as any).Razorpay) {
-      setStep('failed');
-      return;
-    }
+    try {
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !(window as any).Razorpay) {
+        throw new Error('Razorpay checkout script failed to load');
+      }
 
-    const razorpay = new (window as any).Razorpay({
-      key: keyId,
-      amount: Math.round(amount * 100),
-      currency: 'INR',
-      name: 'Scribble Air Draw',
-      description: title,
-      handler: async function (response: any) {
-        setStep('success');
-        if (response?.razorpay_payment_id) {
-          await onSuccess();
-          window.setTimeout(onClose, 1200);
-        }
-      },
-      prefill: {
-        method,
-        ...(method === 'upi' ? { vpa: upiId || 'demo@upi' } : {}),
-        ...(method === 'card'
-          ? {
-              name: 'Demo User',
-              number: cardNumber || '4111111111111111',
-              expiry: expiry || '12/29',
-              cvv: cvv || '123',
-            }
-          : {}),
-      },
-      notes: {
-        plan: title,
-        source: 'neon-air-draw',
-      },
-      theme: {
-        color: '#3399cc',
-      },
-      modal: {
-        ondismiss: () => {
-          setStep('method');
+      const razorpay = new (window as any).Razorpay({
+        key: keyId,
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        name: 'Scribble Air Draw',
+        description: title,
+        handler: async function (response: any) {
+          setStep('success');
+          if (response?.razorpay_payment_id) {
+            await onSuccess();
+            window.setTimeout(onClose, 1200);
+          }
         },
-      },
-    });
+        prefill: {
+          method,
+          ...(method === 'upi' ? { vpa: upiId || 'demo@upi' } : {}),
+          ...(method === 'card'
+            ? {
+                name: 'Demo User',
+                number: cardNumber || '4111111111111111',
+                expiry: expiry || '12/29',
+                cvv: cvv || '123',
+              }
+            : {}),
+        },
+        notes: {
+          plan: title,
+          source: 'neon-air-draw',
+          demoMode: isDemoKey ? 'true' : 'false',
+        },
+        theme: {
+          color: '#3399cc',
+        },
+        modal: {
+          ondismiss: () => {
+            setStep('method');
+          },
+        },
+      });
 
-    razorpay.open();
+      razorpay.open();
+    } catch (error) {
+      console.error('Razorpay checkout failed', error);
+      setStep('failed');
+    }
   }
 
   return (
@@ -127,7 +128,6 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
           boxShadow: '0 30px 90px -20px rgba(0,0,0,0.6)',
         }}
       >
-        {/* header, razorpay-style navy bar */}
         <div style={{ background: '#072654', padding: '16px 18px', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -390,7 +390,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
   );
 }
 
-const detailsInputStyle: React.CSSProperties = {
+const detailsInputStyle: CSSProperties = {
   width: '100%',
   padding: '11px 12px',
   borderRadius: 9,

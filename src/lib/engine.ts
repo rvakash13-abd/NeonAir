@@ -6,7 +6,7 @@
 
 export type Pt = { x: number; y: number };
 export type Color = { r: number; g: number; b: number };
-export type ToolType = 'freehand' | 'line' | 'circle' | 'rect';
+export type ToolType = 'freehand' | 'line' | 'circle' | 'rect' | 'fill';
 
 export interface Stroke {
   type: ToolType;
@@ -19,6 +19,14 @@ export interface Stroke {
   erase: boolean;
   ox: number;
   oy: number;
+  // 'fill' strokes only — a raster patch positioned in world space so it
+  // pans/zooms with everything else. imgSrc is a small PNG data URL, kept
+  // as a plain string so strokes stay JSON-serialisable for saving.
+  imgSrc?: string;
+  wx?: number;
+  wy?: number;
+  ww?: number;
+  wh?: number;
 }
 
 export interface EngineCallbacks {
@@ -104,6 +112,12 @@ export class DrawEngine {
   peaceStreak = 0;
   handMissStreak = 0;
 
+  // Fires the bucket fill once per draw-gesture "tap", not every frame.
+  fillTriggered = false;
+  // Loaded <img> for each 'fill' stroke, keyed off the stroke object itself
+  // (never stored on the stroke, so strokes stay plain JSON for saving).
+  fillImageCache = new WeakMap<Stroke, HTMLImageElement>();
+
   viewScale = 1;
   viewOffX = 0;
   viewOffY = 0;
@@ -178,6 +192,7 @@ export class DrawEngine {
     this.isEraser = false;
     this.shapeStart = null;
     this.shapeLive = false;
+    this.fillTriggered = false;
   }
   setColor(c: Color) {
     this.color = c;
@@ -386,6 +401,20 @@ export class DrawEngine {
   }
 
   renderStroke(ctx: CanvasRenderingContext2D, s: Stroke) {
+    if (s.type === 'fill') {
+      let img = this.fillImageCache.get(s);
+      if (!img && s.imgSrc) {
+        img = new Image();
+        img.onload = () => this.redrawAll();
+        img.src = s.imgSrc;
+        this.fillImageCache.set(s, img);
+      }
+      if (!img || !img.complete || !img.naturalWidth) return;
+      const topLeft = this.worldToScreen((s.wx || 0) + s.ox, (s.wy || 0) + s.oy);
+      const bottomRight = this.worldToScreen((s.wx || 0) + (s.ww || 0) + s.ox, (s.wy || 0) + (s.wh || 0) + s.oy);
+      ctx.drawImage(img, topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+      return;
+    }
     const isShape = s.type && s.type !== 'freehand';
     const worldPts = isShape ? this.shapePoints(s) : s.pts || [];
     const col = s.col,
@@ -630,6 +659,106 @@ export class DrawEngine {
     return best;
   }
 
+  // Paint-bucket fill, MS-Paint style: point inside a closed shape and the
+  // enclosed transparent pixels get filled with the current color. Reads
+  // the actual rendered pixels of drawCanvas, so it works for any
+  // combination of freehand/line/circle/rect strokes forming a boundary.
+  doFill(screenX: number, screenY: number) {
+    const w = this.drawCanvas.width,
+      h = this.drawCanvas.height;
+    const sx = Math.round(screenX),
+      sy = Math.round(screenY);
+    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return;
+
+    const imgData = this.drawCtx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    const ALPHA_WALL = 40; // pixels at/above this alpha count as a boundary line
+    const seedIdx = (sy * w + sx) * 4;
+    if (data[seedIdx + 3] >= ALPHA_WALL) {
+      this.cb.onHint('🪣 Point inside the shape, not on the line');
+      return;
+    }
+
+    const visited = new Uint8Array(w * h);
+    const stack: number[] = [sx, sy];
+    let minX = sx,
+      maxX = sx,
+      minY = sy,
+      maxY = sy;
+    let count = 0;
+    const maxAllowed = w * h * 0.6; // if we blow past this, the shape isn't closed
+
+    while (stack.length) {
+      const y = stack.pop()!;
+      const x = stack.pop()!;
+      if (x < 0 || x >= w || y < 0 || y >= h) continue;
+      const i = y * w + x;
+      if (visited[i]) continue;
+      const di = i * 4;
+      if (data[di + 3] >= ALPHA_WALL) continue;
+      visited[i] = 1;
+      count++;
+      if (count > maxAllowed) {
+        this.cb.onHint('🪣 Shape isn\u2019t fully closed — close the gap and try again');
+        return;
+      }
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      stack.push(x + 1, y, x - 1, y, x, y + 1, x, y - 1);
+    }
+
+    const bw = maxX - minX + 1,
+      bh = maxY - minY + 1;
+    const patch = document.createElement('canvas');
+    patch.width = bw;
+    patch.height = bh;
+    const pctx = patch.getContext('2d')!;
+    const patchData = pctx.createImageData(bw, bh);
+    const { r, g, b } = this.color;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const i = y * w + x;
+        if (!visited[i]) continue;
+        const pi = ((y - minY) * bw + (x - minX)) * 4;
+        patchData.data[pi] = r;
+        patchData.data[pi + 1] = g;
+        patchData.data[pi + 2] = b;
+        patchData.data[pi + 3] = 235;
+      }
+    }
+    pctx.putImageData(patchData, 0, 0);
+
+    const topLeft = this.screenToWorld(minX, minY);
+    const bottomRight = this.screenToWorld(minX + bw, minY + bh);
+    const dataUrl = patch.toDataURL('image/png');
+
+    const s: Stroke = {
+      type: 'fill',
+      col: { ...this.color },
+      size: this.brushSize,
+      erase: false,
+      ox: 0,
+      oy: 0,
+      imgSrc: dataUrl,
+      wx: topLeft.x,
+      wy: topLeft.y,
+      ww: bottomRight.x - topLeft.x,
+      wh: bottomRight.y - topLeft.y,
+    };
+
+    const img = new Image();
+    img.onload = () => this.redrawAll();
+    img.src = dataUrl;
+
+    this.strokes.push(s);
+    this.fillImageCache.set(s, img);
+    this.redrawAll();
+    this.cb.onStrokesChanged();
+    this.cb.onHint('🪣 Filled');
+  }
+
   roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
@@ -721,6 +850,7 @@ export class DrawEngine {
       this.cb.onHint(DEFAULT_HINT);
       this.confirmedGesture = 'none';
       this.peaceStreak = 0;
+      this.fillTriggered = false;
       return;
     }
     this.handMissStreak = 0;
@@ -764,6 +894,7 @@ export class DrawEngine {
     );
 
     if (g === 'peace') {
+      this.fillTriggered = false;
       this.commitActiveStroke();
       this.commitShape();
       if (!this.isDragging && !this.isPanning) {
@@ -809,6 +940,15 @@ export class DrawEngine {
     if (this.isPanning) this.isPanning = false;
 
     if (g === 'draw') {
+      if (this.currentTool === 'fill') {
+        this.cb.onHint('🪣 Point inside a shape to fill');
+        this.cb.onModeBadge('draw', '🪣 FILL');
+        if (!this.fillTriggered) {
+          this.fillTriggered = true;
+          this.doFill(pos.x, pos.y);
+        }
+        return;
+      }
       if (this.currentTool === 'freehand') {
         this.cb.onHint('✏️ Drawing…');
         this.cb.onModeBadge('draw', '🖐 DRAW');
@@ -863,6 +1003,7 @@ export class DrawEngine {
     }
 
     // g === 'none' -> fist detected, stop immediately.
+    this.fillTriggered = false;
     this.commitActiveStroke();
     this.commitShape();
     this.cb.onModeBadge('', '');
