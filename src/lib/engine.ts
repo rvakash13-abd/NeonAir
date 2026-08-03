@@ -238,12 +238,6 @@ export class DrawEngine {
     reader.readAsDataURL(file);
   }
 
-  clearBackgroundImage() {
-    this.bgImage = null;
-    this.camPaused = false;
-    this.redrawAll();
-  }
-
   // Used by the template/trace gallery: loads a bundled outline image as the
   // paused background so the user can draw over it. Returns a promise so the
   // caller can close the picker / update UI once it's actually on screen.

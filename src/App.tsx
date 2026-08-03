@@ -62,7 +62,6 @@ export default function App() {
   const [camPaused, setCamPaused] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [traceImageVisible, setTraceImageVisible] = useState(false);
 
   const [hint, setHint] = useState('Initialising…');
   const [modeBadge, setModeBadge] = useState({ cls: '', text: '' });
@@ -172,23 +171,13 @@ export default function App() {
   const onZoomIn = () => eng().zoomBy(1.25);
   const onZoomOut = () => eng().zoomBy(0.8);
   const onZoomReset = () => eng().zoomReset();
-  const onCamToggle = () => {
-    const next = eng().toggleCamPause();
-    setCamPaused(next);
-    setTraceImageVisible(Boolean(next && eng().bgImage));
-  };
+  const onCamToggle = () => setCamPaused(eng().toggleCamPause());
   const onCanvasModeToggle = () => setCanvasMode(eng().toggleCanvasMode());
   const onPipFlip = () => eng().flipPip();
   const onTransparentToggle = () => setTransparentExport(eng().toggleTransparentExport());
   const onExport = () => eng().exportPNG(profile.currentName);
-  const onClearTraceImage = () => {
-    eng().clearBackgroundImage();
-    setTraceImageVisible(false);
-    setCamPaused(false);
-  };
   const onPickTemplate = async (tpl: Template) => {
     await eng().setBgImageFromUrl(tpl.url);
-    setTraceImageVisible(true);
     setCamPaused(true);
   };
   const onReplay = () => eng().replay();
@@ -209,11 +198,7 @@ export default function App() {
   const onBgImageClick = () => bgImgInputRef.current?.click();
   const onBgImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) {
-      eng().importBgImage(f);
-      setTraceImageVisible(true);
-      setCamPaused(true);
-    }
+    if (f) eng().importBgImage(f);
   };
 
   const drawingNames = Object.keys(profile.drawings);
@@ -225,29 +210,6 @@ export default function App() {
       <video id="cam" ref={camRef} autoPlay playsInline muted />
       <canvas className="bg-canvas" ref={bgCanvasRef} />
       <canvas className="draw-canvas" ref={drawCanvasRef} />
-      {traceImageVisible && (
-        <button
-          type="button"
-          onClick={onClearTraceImage}
-          style={{
-            position: 'absolute',
-            top: 'max(16px, env(safe-area-inset-top))',
-            right: '16px',
-            zIndex: 80,
-            background: 'rgba(17, 24, 39, 0.82)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.18)',
-            borderRadius: '999px',
-            padding: '10px 14px',
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.22)',
-          }}
-        >
-          ✕ Close image
-        </button>
-      )}
       {dot.show && (
         <div
           className="dot"
