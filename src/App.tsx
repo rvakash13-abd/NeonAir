@@ -62,6 +62,7 @@ export default function App() {
   const [camPaused, setCamPaused] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [bgImageActive, setBgImageActive] = useState(false);
 
   const [hint, setHint] = useState('Initialising…');
   const [modeBadge, setModeBadge] = useState({ cls: '', text: '' });
@@ -179,6 +180,12 @@ export default function App() {
   const onPickTemplate = async (tpl: Template) => {
     await eng().setBgImageFromUrl(tpl.url);
     setCamPaused(true);
+    setBgImageActive(true);
+  };
+  const onRemoveBgImage = () => {
+    eng().clearBgImage();
+    setCamPaused(false);
+    setBgImageActive(false);
   };
   const onReplay = () => eng().replay();
   const onRecord = () => {
@@ -198,7 +205,11 @@ export default function App() {
   const onBgImageClick = () => bgImgInputRef.current?.click();
   const onBgImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f) eng().importBgImage(f);
+    if (f) {
+      eng().importBgImage(f);
+      setCamPaused(true);
+      setBgImageActive(true);
+    }
   };
 
   const drawingNames = Object.keys(profile.drawings);
@@ -225,6 +236,32 @@ export default function App() {
             Today's challenge: <b>{challengeText}</b>
           </div>
           <div className={'zoom-indicator' + (zoomShow ? ' show' : '')}>Zoom {zoomPct}%</div>
+
+          {bgImageActive && (
+            <div
+              onClick={onRemoveBgImage}
+              style={{
+                position: 'absolute',
+                top: 'max(52px, calc(env(safe-area-inset-top) + 40px))',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 21,
+                background: 'rgba(0,0,0,0.55)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                color: '#fff',
+                fontSize: 11,
+                padding: '5px 12px',
+                borderRadius: 20,
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              ✕ Remove image
+            </div>
+          )}
 
           <div className="panel-toggle" style={{ right: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setPanelCollapsed((c) => !c)}>⚙</div>
           <div className="panel-toggle" style={{ left: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setGalleryHidden((c) => !c)}>☰</div>

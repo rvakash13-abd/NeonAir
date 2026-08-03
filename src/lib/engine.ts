@@ -255,6 +255,13 @@ export class DrawEngine {
     });
   }
 
+  // Removes the current paused background image (from a template or an
+  // uploaded file) and resumes the live webcam feed.
+  clearBgImage() {
+    this.bgImage = null;
+    this.camPaused = false;
+  }
+
   undo() {
     this.strokes.pop();
     this.redrawAll();
