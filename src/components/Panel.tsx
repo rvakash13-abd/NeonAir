@@ -129,7 +129,6 @@ export default function Panel(p: Props) {
 
   const activeToolLabel = p.isEraser ? 'Eraser' : TOOLS.find((t) => t.id === p.tool)?.label || 'Freehand';
 
-  // Row renders an icon, and — only when expanded — a text label next to it.
   function Row({
     Icon,
     label,
@@ -173,7 +172,7 @@ export default function Panel(p: Props) {
         </div>
 
         <div className="panel-label">Color</div>
-        <div className={expanded ? 'swatch-grid-expanded' : undefined} style={expanded ? { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, width: '100%' } : undefined}>
+        <div className={expanded ? undefined : undefined} style={expanded ? { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, width: '100%' } : undefined}>
           {SWATCHES.map((c, i) => (
             <div
               key={i}

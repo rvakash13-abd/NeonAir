@@ -40,7 +40,7 @@ export default function App() {
   const bgImgInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
-  const { user, authLoading, login, signup, logout, resetPassword } = useAuth();
+  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle } = useAuth();
   const profile = useProfile();
 
   const [stage, setStage] = useState<Stage>('boot');
@@ -353,7 +353,13 @@ export default function App() {
       </AnimatePresence>
 
       {stage === 'login' && (
-        <LoginScreen onLogin={login} onSignup={signup} onResetPassword={resetPassword} loading={authLoading} />
+        <LoginScreen
+          onLogin={login}
+          onSignup={signup}
+          onLoginWithGoogle={loginWithGoogle}
+          onResetPassword={resetPassword}
+          loading={authLoading}
+        />
       )}
 
       {showLoadOverlay && <LoadOverlay pct={loadPct} msg={loadMsg} />}

@@ -3,6 +3,8 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   sendPasswordResetEmail,
   type User,
@@ -18,6 +20,8 @@ const FRIENDLY_ERRORS: Record<string, string> = {
   'auth/invalid-credential': 'Incorrect email or password.',
   'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.',
   'auth/network-request-failed': 'Network error — check your connection.',
+  'auth/popup-closed-by-user': 'Sign-in was cancelled.',
+  'auth/unauthorized-domain': 'This domain is not authorized for Google sign-in yet.',
 };
 
 export function friendlyAuthError(err: any): string {
@@ -51,6 +55,16 @@ export function useAuth() {
       setAuthLoading(false);
     }
   }
+  async function loginWithGoogle() {
+    if (!auth) throw new Error('Firebase not configured');
+    setAuthLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
   async function logout() {
     if (!auth) return;
     await signOut(auth);
@@ -60,5 +74,5 @@ export function useAuth() {
     await sendPasswordResetEmail(auth, email);
   }
 
-  return { user, authLoading, login, signup, logout, resetPassword };
+  return { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle };
 }
