@@ -112,9 +112,8 @@ export function ConfigMissingScreen() {
         Setup needed
       </div>
       <div className="text-[12.5px] text-white/45 text-center max-w-sm leading-relaxed">
-        This app needs a Firebase project connected before login will work. Fill in{' '}
-        <code className="bg-white/10 px-1.5 py-0.5 rounded">firebaseConfig</code> in{' '}
-        <code className="bg-white/10 px-1.5 py-0.5 rounded">src/lib/firebase.ts</code>, then reload.
+        This app requires a Clerk publishable key for authentication. Add your key to your environment as
+        <code className="bg-white/10 px-1.5 py-0.5 rounded">VITE_CLERK_PUBLISHABLE_KEY</code>, then reload.
       </div>
     </div>
   );

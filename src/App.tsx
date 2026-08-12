@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
 import { DrawEngine, type Color, type ToolType, type Stroke } from './lib/engine';
-import { firebaseIsConfigured } from './lib/firebase';
-import { useAuth } from './hooks/useAuth';
+// Require Clerk publishable key for auth to work when not using Firebase
+import { useAuth, isSsoCallbackPath } from './hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
+import LandingScreen from './components/LandingScreen';
 import LoginScreen from './components/LoginScreen';
 import { NicknameScreen, WelcomeScreen, LoadOverlay, ConfigMissingScreen } from './components/StageOverlays';
 import Panel from './components/Panel';
@@ -28,11 +30,12 @@ function todaysChallenge() {
   return CHALLENGES[dayOfYear % CHALLENGES.length];
 }
 
-type Stage = 'boot' | 'login' | 'nickname' | 'welcome' | 'app';
+type Stage = 'boot' | 'landing' | 'login' | 'nickname' | 'welcome' | 'app';
 
 const FREE_DRAWING_LIMIT = 2;
 
 export default function App() {
+  const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
@@ -40,7 +43,7 @@ export default function App() {
   const bgImgInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
-  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle } = useAuth();
+  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle, confirmEmailCode } = useAuth();
   const profile = useProfile();
 
   const [stage, setStage] = useState<Stage>('boot');
@@ -116,13 +119,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── boot: wait for firebase auth state ──
+  // ── boot: wait for auth state ──
   useEffect(() => {
-    if (!firebaseIsConfigured) return; // ConfigMissingScreen handles this
+    if (!clerkConfigured) return; // ConfigMissingScreen handles this
     if (user === undefined) return; // still loading
     if (user === null) {
       profile.reset();
-      setStage('login');
+      // First-ever load shows the landing page; a logout later goes straight to login.
+      setStage((s) => (s === 'boot' ? 'landing' : 'login'));
       return;
     }
     // user logged in
@@ -149,6 +153,10 @@ export default function App() {
       engineRef.current.start();
     }
   }, []);
+
+  function handleGetStarted() {
+    setStage('login');
+  }
 
   async function handleNicknameContinue(nickname: string) {
     await profile.saveNicknameOnly(nickname);
@@ -216,6 +224,12 @@ export default function App() {
   const currentStrokes: Stroke[] = engineRef.current?.getStrokes() || [];
   void strokesTick;
 
+  // Clerk's Google OAuth redirect flow lands back here after auth — hand off
+  // to Clerk's callback handler before anything else in the app renders.
+  if (isSsoCallbackPath()) {
+    return <AuthenticateWithRedirectCallback afterSignInUrl="/" afterSignUpUrl="/" />;
+  }
+
   return (
     <div className="transition-colors duration-700 overflow-x-hidden w-full h-full relative">
       <video id="cam" ref={camRef} autoPlay playsInline muted />
@@ -227,7 +241,7 @@ export default function App() {
           style={{ left: dot.x, top: dot.y, width: dot.size, height: dot.size, background: dot.color, boxShadow: dot.glow }}
         />
       )}
- 
+
       {stage === 'app' && (
         <>
           <div id="hint">{hint}</div>
@@ -389,18 +403,21 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {stage === 'landing' && <LandingScreen onGetStarted={handleGetStarted} />}
+
       {stage === 'login' && (
         <LoginScreen
           onLogin={login}
           onSignup={signup}
           onLoginWithGoogle={loginWithGoogle}
           onResetPassword={resetPassword}
+          confirmEmailCode={confirmEmailCode}
           loading={authLoading}
         />
       )}
 
       {showLoadOverlay && <LoadOverlay pct={loadPct} msg={loadMsg} />}
-      {!firebaseIsConfigured && <ConfigMissingScreen />}
+          {!clerkConfigured && <ConfigMissingScreen />}
     </div>
   );
 }
