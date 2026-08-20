@@ -190,6 +190,7 @@ export function useAuth() {
             throw err;
           }
         }
+        
         if (signIn && signIn.status === 'needs_first_factor') {
           try {
             const result = await signIn.attemptFirstFactor({ strategy: 'email_code', code: trimmed });
