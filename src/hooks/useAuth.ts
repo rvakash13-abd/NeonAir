@@ -9,10 +9,15 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
-  sendEmailVerification,
   type User,
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+
+const INTERNAL_EMAIL_DOMAIN = '@accounts.neonair.invalid';
+
+function usernameEmail(username: string) {
+  return `${username.trim().toLowerCase()}${INTERNAL_EMAIL_DOMAIN}`;
+}
 
 export interface AppUser {
   uid: string;
@@ -41,37 +46,29 @@ export function useAuth() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser: User | null) => {
-      setUser(fbUser ? { uid: fbUser.uid, email: fbUser.email } : null);
+      setUser(fbUser ? {
+        uid: fbUser.uid,
+        email: fbUser.email?.endsWith(INTERNAL_EMAIL_DOMAIN) ? null : fbUser.email,
+      } : null);
     });
     return unsub;
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (username: string, password: string) => {
     setAuthLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, usernameEmail(username), password);
     } finally {
       setAuthLoading(false);
     }
   }, []);
 
   const signup = useCallback(
-    async (email: string, password: string, firstName = '', lastName = '', username = '') => {
+    async (username: string, password: string) => {
       setAuthLoading(true);
       try {
-        const cred = await createUserWithEmailAddressAndPassword();
-
-        async function createUserWithEmailAddressAndPassword() {
-          return createUserWithEmailAndPassword(auth, email, password);
-        }
-
-        const displayName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || username.trim();
-        if (displayName) {
-          await updateProfile(cred.user, { displayName });
-        }
-        // Fire-and-forget verification email — user is signed in immediately
-        // and not blocked on clicking it, matching the app's current flow.
-        sendEmailVerification(cred.user).catch(() => {});
+        const cred = await createUserWithEmailAndPassword(auth, usernameEmail(username), password);
+        await updateProfile(cred.user, { displayName: username.trim() });
       } finally {
         setAuthLoading(false);
       }

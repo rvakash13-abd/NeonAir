@@ -6,8 +6,8 @@ import AnimatedShaderBackground from './Animatedshaderbackground';
 type Mode = 'login' | 'signup';
 
 interface Props {
-  onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (email: string, password: string, firstName: string, lastName: string, username: string) => Promise<void>;
+  onLogin: (username: string, password: string) => Promise<void>;
+  onSignup: (username: string, password: string) => Promise<void>;
   onLoginWithGoogle: () => Promise<void>;
   onResetPassword: (email: string) => Promise<void>;
   loading: boolean;
@@ -40,38 +40,25 @@ function GoogleIcon() {
 
 export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onResetPassword, loading }: Props) {
   const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [status, setStatus] = useState('');
   const [googleBusy, setGoogleBusy] = useState(false);
 
   async function submit() {
-    if (!email || !password) {
-      setStatus('Please fill in your email and password.');
+    if (!username.trim() || !password) {
+      setStatus('Please enter your username and password.');
       return;
     }
-    if (mode === 'signup' && password !== confirm) {
-      setStatus("Those passwords don't match.");
-      return;
-    }
-    if (mode === 'signup' && !firstName.trim()) {
-      setStatus('Please enter your first name.');
-      return;
-    }
-    if (mode === 'signup' && !username.trim()) {
-      setStatus('Please choose a username.');
+    if (mode === 'signup' && !/^[a-zA-Z0-9._-]{3,32}$/.test(username.trim())) {
+      setStatus('Username must be 3–32 characters: letters, numbers, dot, dash, or underscore.');
       return;
     }
     setStatus(mode === 'signup' ? 'Creating your account…' : 'Logging you in…');
     try {
-      if (mode === 'signup') await onSignup(email, password, firstName, lastName, username);
-      else await onLogin(email, password);
+      if (mode === 'signup') await onSignup(username, password);
+      else await onLogin(username, password);
     } catch (e: any) {
       const msg = friendlyAuthError(e);
       setStatus(msg);
@@ -91,13 +78,12 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
   }
 
   async function forgot() {
-    if (!email) {
-      setStatus('Type your email above first, then tap "Forgot password?"');
+    if (!username.trim()) {
+      setStatus('Enter your username first.');
       return;
     }
     try {
-      await onResetPassword(email);
-      setStatus('Sent! Check your inbox for a reset link.');
+      setStatus('Password reset is unavailable for username-only accounts.');
     } catch (e: any) {
       setStatus(friendlyAuthError(e));
     }
@@ -187,10 +173,10 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             <input
               className="night-input"
               type="email"
-              placeholder="Email"
+              placeholder="Username"
               autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
             />
             <div className="relative flex items-center">
@@ -209,59 +195,12 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             </div>
 
             {mode === 'signup' && (
-              <>
-                <input
-                  className="night-input"
-                  type="text"
-                  placeholder="Username"
-                  autoComplete="nickname"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    className="night-input"
-                    type="text"
-                    placeholder="First name"
-                    autoComplete="given-name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                  <input
-                    className="night-input"
-                    type="text"
-                    placeholder="Last name"
-                    autoComplete="family-name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
-                <div className="relative flex items-center">
-                  <input
-                    className="night-input pr-11"
-                    type={showConfirm ? 'text' : 'password'}
-                    placeholder="Confirm password"
-                    autoComplete="new-password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && submit()}
-                  />
-                  <span className="night-pw-toggle absolute right-3.5" onClick={() => setShowConfirm((s) => !s)}>
-                    <EyeIcon off={showConfirm} />
-                  </span>
-                </div>
-              </>
+              <div className="text-center text-[11px] text-white/35">Username and password are enough to create your account.</div>
             )}
 
             <motion.button whileTap={{ scale: 0.97 }} className="night-submit mt-1" onClick={submit} disabled={loading}>
               {mode === 'signup' ? 'Create account' : 'Log in'}
             </motion.button>
-
-            {mode === 'login' && (
-              <div className="text-center text-[11.5px] text-white/35 underline cursor-pointer mt-1" onClick={forgot}>
-                Forgot password?
-              </div>
-            )}
 
             <div className="text-center text-[12px] min-h-[16px] text-white/50 mt-1">{status}</div>
           </div>
