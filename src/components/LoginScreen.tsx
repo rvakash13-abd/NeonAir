@@ -10,7 +10,6 @@ interface Props {
   onSignup: (email: string, password: string, firstName: string, lastName: string, username: string) => Promise<void>;
   onLoginWithGoogle: () => Promise<void>;
   onResetPassword: (email: string) => Promise<void>;
-  confirmEmailCode: (code: string, username?: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -39,7 +38,7 @@ function GoogleIcon() {
   );
 }
 
-export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onResetPassword, confirmEmailCode, loading }: Props) {
+export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onResetPassword, loading }: Props) {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,8 +50,6 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
   const [showConfirm, setShowConfirm] = useState(false);
   const [status, setStatus] = useState('');
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [expectingCode, setExpectingCode] = useState(false);
-  const [code, setCode] = useState('');
 
   async function submit() {
     if (!email || !password) {
@@ -78,9 +75,6 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
     } catch (e: any) {
       const msg = friendlyAuthError(e);
       setStatus(msg);
-      if (msg.toLowerCase().includes('verification code') || msg.toLowerCase().includes('additional verification')) {
-        setExpectingCode(true);
-      }
     }
   }
 
@@ -93,25 +87,6 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
       setStatus(friendlyAuthError(e));
     } finally {
       setGoogleBusy(false);
-    }
-  }
-
-  async function verifyCode() {
-    if (!confirmEmailCode) {
-      setStatus('Verification not available right now.');
-      return;
-    }
-    setStatus('Verifying…');
-    try {
-      await confirmEmailCode(code.trim(), username);
-      setStatus('Verified — you are now logged in.');
-      setExpectingCode(false);
-    } catch (err: any) {
-      try {
-        setStatus(friendlyAuthError(err));
-      } catch (e) {
-        setStatus('Verification failed — please try again.');
-      }
     }
   }
 
@@ -289,19 +264,6 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             )}
 
             <div className="text-center text-[12px] min-h-[16px] text-white/50 mt-1">{status}</div>
-            {expectingCode && (
-              <div className="mt-3">
-                <input
-                  className="night-input"
-                  placeholder="Verification code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-                <button className="night-submit mt-2" onClick={verifyCode} disabled={loading}>
-                  Verify code
-                </button>
-              </div>
-            )}
           </div>
         </motion.div>
       </div>

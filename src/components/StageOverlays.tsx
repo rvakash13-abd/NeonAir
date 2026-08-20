@@ -112,8 +112,7 @@ export function ConfigMissingScreen() {
         Setup needed
       </div>
       <div className="text-[12.5px] text-white/45 text-center max-w-sm leading-relaxed">
-        This app requires a Clerk publishable key for authentication. Add your key to your environment as
-        <code className="bg-white/10 px-1.5 py-0.5 rounded">VITE_CLERK_PUBLISHABLE_KEY</code>, then reload.
+        Firebase authentication is not configured. Check the Firebase project settings and reload the app.
       </div>
     </div>
   );

@@ -1,19 +1,18 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-// Same "Neon-Air" Firebase project as the original app.
 const firebaseConfig = {
-  apiKey: 'AIzaSyDyWVzz0wpAYN7uxlLBv8ZJGJuPznsQAyo',
-  authDomain: 'neon-air.firebaseapp.com',
-  projectId: 'neon-air',
-  storageBucket: 'neon-air.firebasestorage.app',
-  messagingSenderId: '705437255274',
-  appId: '1:705437255274:web:2484cc2cd67c0d24c3ec13',
+  apiKey: "AIzaSyDyWVzz0wpAYN7uxlLBv8ZJGJuPznsQAyo",
+  authDomain: "neon-air.firebaseapp.com",
+  projectId: "neon-air",
+  storageBucket: "neon-air.firebasestorage.app",
+  messagingSenderId: "705437255274",
+  appId: "1:705437255274:web:2484cc2cd67c0d24c3ec13",
+  measurementId: "G-4X2P35Q56Z",
 };
 
-export const firebaseIsConfigured = firebaseConfig.apiKey !== 'YOUR_API_KEY';
+const app = initializeApp(firebaseConfig);
 
-export const app = firebaseIsConfigured ? initializeApp(firebaseConfig) : null;
-export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export const auth = getAuth(app);
+export const db = getFirestore(app);

@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
 import { DrawEngine, type Color, type ToolType, type Stroke } from './lib/engine';
-// Require Clerk publishable key for auth to work when not using Firebase
-import { useAuth, isSsoCallbackPath } from './hooks/useAuth';
+import { useAuth } from './hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
 import LandingScreen from './components/LandingScreen';
 import LoginScreen from './components/LoginScreen';
-import { NicknameScreen, WelcomeScreen, LoadOverlay, ConfigMissingScreen } from './components/StageOverlays';
+import { NicknameScreen, WelcomeScreen, LoadOverlay } from './components/StageOverlays';
 import Panel from './components/Panel';
 import GalleryPanel from './components/GalleryPanel';
 import { StatsModal, HistoryModal, ProfileModal } from './components/Modals';
@@ -35,7 +33,6 @@ type Stage = 'boot' | 'landing' | 'login' | 'nickname' | 'welcome' | 'app';
 const FREE_DRAWING_LIMIT = 2;
 
 export default function App() {
-  const clerkConfigured = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
@@ -43,7 +40,7 @@ export default function App() {
   const bgImgInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
-  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle, confirmEmailCode } = useAuth();
+  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle } = useAuth();
   const profile = useProfile();
 
   const [stage, setStage] = useState<Stage>('boot');
@@ -121,7 +118,6 @@ export default function App() {
 
   // ── boot: wait for auth state ──
   useEffect(() => {
-    if (!clerkConfigured) return; // ConfigMissingScreen handles this
     if (user === undefined) return; // still loading
     if (user === null) {
       profile.reset();
@@ -166,7 +162,7 @@ export default function App() {
 
   async function handleNicknameContinue(nickname: string) {
     setIsNewUser(true);
-    setStage('welcome');
+    enterApp();
     try {
       await profile.saveNicknameOnly(nickname);
     } catch (error) {
@@ -233,12 +229,6 @@ export default function App() {
   const drawingNames = Object.keys(profile.drawings);
   const currentStrokes: Stroke[] = engineRef.current?.getStrokes() || [];
   void strokesTick;
-
-  // Clerk's Google OAuth redirect flow lands back here after auth — hand off
-  // to Clerk's callback handler before anything else in the app renders.
-  if (isSsoCallbackPath()) {
-    return <AuthenticateWithRedirectCallback afterSignInUrl="/" afterSignUpUrl="/" />;
-  }
 
   return (
     <div className="transition-colors duration-700 overflow-x-hidden w-full h-full relative">
@@ -421,13 +411,11 @@ export default function App() {
           onSignup={signup}
           onLoginWithGoogle={loginWithGoogle}
           onResetPassword={resetPassword}
-          confirmEmailCode={confirmEmailCode}
           loading={authLoading}
         />
       )}
 
       {showLoadOverlay && <LoadOverlay pct={loadPct} msg={loadMsg} />}
-          {!clerkConfigured && <ConfigMissingScreen />}
     </div>
   );
 }
