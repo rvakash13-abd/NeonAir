@@ -1,8 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import type { User } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import type { DrawEngine, Stroke } from '../lib/engine';
+
+interface ProfileUser {
+  uid: string;
+  email: string | null;
+}
 
 export interface HistorySnap {
   ts: number;
@@ -18,11 +22,11 @@ export function useProfile() {
   const [history, setHistory] = useState<Record<string, HistorySnap[]>>({});
   const [currentName, setCurrentName] = useState('Untitled');
   const [saveStatus, setSaveStatus] = useState('');
-  const userRef = useRef<User | null>(null);
+  const userRef = useRef<ProfileUser | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const drawStart = useRef(Date.now());
 
-const load = useCallback(async (user: User, engine: DrawEngine) => {
+  const load = useCallback(async (user: ProfileUser, engine: DrawEngine) => {
     userRef.current = user;
     let nn: string | null = null;
     let bb = '';
