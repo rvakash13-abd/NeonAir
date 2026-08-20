@@ -159,9 +159,13 @@ export default function App() {
   }
 
   async function handleNicknameContinue(nickname: string) {
-    await profile.saveNicknameOnly(nickname);
     setIsNewUser(true);
     setStage('welcome');
+    try {
+      await profile.saveNicknameOnly(nickname);
+    } catch (error) {
+      console.error('Failed to save nickname:', error);
+    }
   }
 
   function handleLogout() {
