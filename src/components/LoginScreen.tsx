@@ -7,10 +7,10 @@ type Mode = 'login' | 'signup';
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  onSignup: (email: string, password: string, firstName: string, lastName: string, username: string) => Promise<void>;
   onLoginWithGoogle: () => Promise<void>;
   onResetPassword: (email: string) => Promise<void>;
-  confirmEmailCode: (code: string) => Promise<void>;
+  confirmEmailCode: (code: string, username?: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -46,6 +46,7 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
   const [confirm, setConfirm] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [status, setStatus] = useState('');
@@ -66,9 +67,13 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
       setStatus('Please enter your first name.');
       return;
     }
+    if (mode === 'signup' && !username.trim()) {
+      setStatus('Please choose a username.');
+      return;
+    }
     setStatus(mode === 'signup' ? 'Creating your account…' : 'Logging you in…');
     try {
-      if (mode === 'signup') await onSignup(email, password, firstName, lastName);
+      if (mode === 'signup') await onSignup(email, password, firstName, lastName, username);
       else await onLogin(email, password);
     } catch (e: any) {
       const msg = friendlyAuthError(e);
@@ -98,7 +103,7 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
     }
     setStatus('Verifying…');
     try {
-      await confirmEmailCode(code.trim());
+      await confirmEmailCode(code.trim(), username);
       setStatus('Verified — you are now logged in.');
       setExpectingCode(false);
     } catch (err: any) {
@@ -230,6 +235,14 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
 
             {mode === 'signup' && (
               <>
+                <input
+                  className="night-input"
+                  type="text"
+                  placeholder="Username"
+                  autoComplete="nickname"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     className="night-input"

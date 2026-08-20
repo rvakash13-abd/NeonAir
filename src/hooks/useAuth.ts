@@ -96,7 +96,7 @@ export function useAuth() {
   );
 
   const signup = useCallback(
-    async (email: string, password: string, firstName = '', lastName = '') => {
+    async (email: string, password: string, firstName = '', lastName = '', username = '') => {
       if (!signUpLoaded || !signUp) throw new Error('Auth not ready yet');
       setAuthLoading(true);
       try {
@@ -105,6 +105,7 @@ export function useAuth() {
           password,
           ...(firstName.trim() ? { firstName: firstName.trim() } : {}),
           ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
+          ...(username.trim() ? { username: username.trim() } : {}),
         });
         console.log('signUp.create result:', result.status, result);
         if (result.status === 'complete') {
@@ -170,7 +171,7 @@ export function useAuth() {
   // surfaces Clerk's real error via friendlyAuthError, instead of a
   // hardcoded generic message.
   const confirmEmailCode = useCallback(
-    async (code: string) => {
+    async (code: string, username = '') => {
       setAuthLoading(true);
       const trimmed = code.trim();
       try {
@@ -179,6 +180,9 @@ export function useAuth() {
         // depending on configuration. Surface a clearer message if additional
         // requirements are needed to complete signup.
         if (signUp) {
+          if (signUp.missingFields?.includes('username') && username.trim()) {
+            await signUp.update({ username: username.trim() });
+          }
           try {
             const result = await signUp.attemptEmailAddressVerification({ code: trimmed });
             console.log('attemptEmailAddressVerification result:', result.status, result);
