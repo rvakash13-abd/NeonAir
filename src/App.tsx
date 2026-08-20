@@ -147,13 +147,18 @@ export default function App() {
     setStage('app');
     const isMobileLayout = window.matchMedia('(max-width: 760px), (pointer: coarse) and (max-width: 900px)').matches;
     setGalleryHidden(isMobileLayout);
-    window.setTimeout(() => {
+  }, []);
+
+  useEffect(() => {
+    if (stage !== 'app') return;
+    const startTimer = window.setTimeout(() => {
       const engine = engineRef.current;
       if (!engine || engine.mpReady || engine.stream) return;
       setShowLoadOverlay(true);
       void engine.start();
     }, 0);
-  }, []);
+    return () => window.clearTimeout(startTimer);
+  }, [stage]);
 
   function handleGetStarted() {
     setStage('login');
