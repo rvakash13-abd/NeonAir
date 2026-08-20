@@ -147,11 +147,12 @@ export default function App() {
     setStage('app');
     const isMobileLayout = window.matchMedia('(max-width: 760px), (pointer: coarse) and (max-width: 900px)').matches;
     setGalleryHidden(isMobileLayout);
-    if (!engineRef.current) return;
-    if (!engineRef.current.mpReady && !engineRef.current.stream) {
+    window.setTimeout(() => {
+      const engine = engineRef.current;
+      if (!engine || engine.mpReady || engine.stream) return;
       setShowLoadOverlay(true);
-      engineRef.current.start();
-    }
+      void engine.start();
+    }, 0);
   }, []);
 
   function handleGetStarted() {
