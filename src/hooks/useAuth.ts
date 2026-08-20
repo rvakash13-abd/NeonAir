@@ -96,11 +96,16 @@ export function useAuth() {
   );
 
   const signup = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, firstName = '', lastName = '') => {
       if (!signUpLoaded || !signUp) throw new Error('Auth not ready yet');
       setAuthLoading(true);
       try {
-        const result = await signUp.create({ emailAddress: email, password });
+        const result = await signUp.create({
+          emailAddress: email,
+          password,
+          ...(firstName.trim() ? { firstName: firstName.trim() } : {}),
+          ...(lastName.trim() ? { lastName: lastName.trim() } : {}),
+        });
         console.log('signUp.create result:', result.status, result);
         if (result.status === 'complete') {
           await setActiveSignUp!({ session: result.createdSessionId });
@@ -182,7 +187,8 @@ export function useAuth() {
               return;
             }
             if (result.status === 'missing_requirements') {
-              throw { errors: [{ message: 'Verification incomplete — additional information required to finish signup. Please complete the signup form.' }] };
+              const missing = result.missingFields?.join(', ').replaceAll('_', ' ') || 'additional information';
+              throw { errors: [{ message: `Verification succeeded, but Clerk still needs: ${missing}.` }] };
             }
             throw { errors: [{ message: `Verification incomplete (status: ${result.status})` }] };
           } catch (err: any) {

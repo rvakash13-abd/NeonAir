@@ -7,7 +7,7 @@ type Mode = 'login' | 'signup';
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
-  onSignup: (email: string, password: string) => Promise<void>;
+  onSignup: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   onLoginWithGoogle: () => Promise<void>;
   onResetPassword: (email: string) => Promise<void>;
   confirmEmailCode: (code: string) => Promise<void>;
@@ -44,6 +44,8 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [status, setStatus] = useState('');
@@ -60,9 +62,13 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
       setStatus("Those passwords don't match.");
       return;
     }
+    if (mode === 'signup' && !firstName.trim()) {
+      setStatus('Please enter your first name.');
+      return;
+    }
     setStatus(mode === 'signup' ? 'Creating your account…' : 'Logging you in…');
     try {
-      if (mode === 'signup') await onSignup(email, password);
+      if (mode === 'signup') await onSignup(email, password, firstName, lastName);
       else await onLogin(email, password);
     } catch (e: any) {
       const msg = friendlyAuthError(e);
@@ -223,20 +229,40 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             </div>
 
             {mode === 'signup' && (
-              <div className="relative flex items-center">
-                <input
-                  className="night-input pr-11"
-                  type={showConfirm ? 'text' : 'password'}
-                  placeholder="Confirm password"
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && submit()}
-                />
-                <span className="night-pw-toggle absolute right-3.5" onClick={() => setShowConfirm((s) => !s)}>
-                  <EyeIcon off={showConfirm} />
-                </span>
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    className="night-input"
+                    type="text"
+                    placeholder="First name"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                  <input
+                    className="night-input"
+                    type="text"
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+                <div className="relative flex items-center">
+                  <input
+                    className="night-input pr-11"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="Confirm password"
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && submit()}
+                  />
+                  <span className="night-pw-toggle absolute right-3.5" onClick={() => setShowConfirm((s) => !s)}>
+                    <EyeIcon off={showConfirm} />
+                  </span>
+                </div>
+              </>
             )}
 
             <motion.button whileTap={{ scale: 0.97 }} className="night-submit mt-1" onClick={submit} disabled={loading}>
