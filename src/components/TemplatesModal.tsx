@@ -17,7 +17,10 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
   const items = templatesByCategory[activeCat] || [];
 
   async function handlePick(tpl: Template) {
-    if (!subscribed && !tpl.free) return;
+    if (!subscribed && !tpl.free) {
+      setShowPay(true);
+      return;
+    }
     setLoadingUrl(tpl.url);
     try {
       await onPick(tpl);

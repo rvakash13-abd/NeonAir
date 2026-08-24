@@ -65,7 +65,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
       const orderResponse = await fetch('/api/create-order', { method: 'POST' });
       const orderData = await orderResponse.json().catch(() => ({}));
       if (!orderResponse.ok || !orderData.orderId || !orderData.keyId) {
-        throw new Error(orderData.error || 'Unable to create payment order');
+        throw new Error(orderData.error || `Payment server returned HTTP ${orderResponse.status}`);
       }
 
       const loaded = await loadRazorpayScript();
@@ -357,7 +357,9 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                 !
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Payment couldn't start</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{errorMessage || 'Please try again.'}</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2, wordBreak: 'break-word' }}>
+                {errorMessage || 'Please try again.'}
+              </div>
               <button
                 onClick={() => setStep('method')}
                 style={{
