@@ -51,17 +51,19 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   function proceedToDetails() {
     setStep('details');
   }
 
   async function pay() {
+    setErrorMessage('');
     setStep('processing');
 
     try {
       const orderResponse = await fetch('/api/create-order', { method: 'POST' });
-      const orderData = await orderResponse.json();
+      const orderData = await orderResponse.json().catch(() => ({}));
       if (!orderResponse.ok || !orderData.orderId || !orderData.keyId) {
         throw new Error(orderData.error || 'Unable to create payment order');
       }
@@ -122,6 +124,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
       razorpay.open();
     } catch (error) {
       console.error('Razorpay checkout failed', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to start Razorpay Checkout.');
       setStep('failed');
     }
   }
@@ -354,7 +357,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                 !
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Payment couldn't start</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Please try again.</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{errorMessage || 'Please try again.'}</div>
               <button
                 onClick={() => setStep('method')}
                 style={{
