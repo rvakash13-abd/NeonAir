@@ -13,6 +13,31 @@ npm install
 npm run dev
 ```
 
+## Razorpay payments
+
+The browser uses only `VITE_RAZORPAY_KEY_ID`. Keep the secret values in a
+server environment, never in React code or variables prefixed with `VITE_`:
+
+```env
+VITE_RAZORPAY_KEY_ID=rzp_test_your_key_id
+RAZORPAY_KEY_ID=rzp_test_your_key_id
+RAZORPAY_KEY_SECRET=your_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
+```
+
+The payment API is implemented in `api/create-order.js` and
+`api/verify-payment.js`. To test the frontend and API functions together,
+install the Vercel CLI and run:
+
+```bash
+npm install -g vercel
+vercel dev
+```
+
+Use Razorpay test credentials locally. Add the same variables to Vercel
+Project Settings for deployment, and switch to live credentials only when the
+Razorpay account is ready to accept real payments.
+
 Needs a webcam and (for login/sync) the Firebase project already wired up in
 `src/lib/firebase.ts` — it's the same project the original file used.
 

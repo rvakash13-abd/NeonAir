@@ -14,6 +14,8 @@ type Step = 'method' | 'details' | 'processing' | 'success' | 'failed';
 const RAZORPAY_SCRIPT_ID = 'razorpay-checkout-script';
 const RAZORPAY_SCRIPT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
 
+const PAYEE_NAME = 'Scribble Air Draw';
+
 function loadRazorpayScript() {
   return new Promise<boolean>((resolve) => {
     if (typeof window === 'undefined') {
@@ -27,7 +29,6 @@ function loadRazorpayScript() {
         resolve(true);
         return;
       }
-
       existing.addEventListener('load', () => resolve(true), { once: true });
       existing.addEventListener('error', () => resolve(false), { once: true });
       return;
@@ -56,33 +57,49 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
   }
 
   async function pay() {
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_1DP5mmOlF5G5ag';
-    const isDemoKey = !import.meta.env.VITE_RAZORPAY_KEY_ID;
-
     setStep('processing');
 
     try {
+      const orderResponse = await fetch('/api/create-order', { method: 'POST' });
+      const orderData = await orderResponse.json();
+      if (!orderResponse.ok || !orderData.orderId || !orderData.keyId) {
+        throw new Error(orderData.error || 'Unable to create payment order');
+      }
+
       const loaded = await loadRazorpayScript();
       if (!loaded || !(window as any).Razorpay) {
         throw new Error('Razorpay checkout script failed to load');
       }
 
       const razorpay = new (window as any).Razorpay({
-        key: keyId,
-        amount: Math.round(amount * 100),
-        currency: 'INR',
-        name: 'Scribble Air Draw',
+        key: orderData.keyId,
+        order_id: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: PAYEE_NAME,
         description: title,
         handler: async function (response: any) {
-          setStep('success');
-          if (response?.razorpay_payment_id) {
+          try {
+            const verificationResponse = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+            const verification = await verificationResponse.json();
+            if (!verificationResponse.ok || !verification.verified) {
+              throw new Error(verification.error || 'Payment verification failed');
+            }
+            setStep('success');
             await onSuccess();
             window.setTimeout(onClose, 1200);
+          } catch (error) {
+            console.error('Razorpay payment verification failed', error);
+            setStep('failed');
           }
         },
         prefill: {
           method,
-          ...(method === 'upi' ? { vpa: upiId || 'demo@upi' } : {}),
+          ...(method === 'upi' && upiId ? { vpa: upiId } : {}),
           ...(method === 'card'
             ? {
                 name: 'Demo User',
@@ -95,15 +112,10 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
         notes: {
           plan: title,
           source: 'neon-air-draw',
-          demoMode: isDemoKey ? 'true' : 'false',
         },
-        theme: {
-          color: '#3399cc',
-        },
+        theme: { color: '#3399cc' },
         modal: {
-          ondismiss: () => {
-            setStep('method');
-          },
+          ondismiss: () => setStep('method'),
         },
       });
 
@@ -148,17 +160,6 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
               </div>
               <span style={{ fontWeight: 600, fontSize: 14 }}>Razorpay</span>
             </div>
-            <span
-              style={{
-                fontSize: 9.5,
-                background: 'rgba(255,255,255,0.12)',
-                padding: '2px 8px',
-                borderRadius: 20,
-                letterSpacing: 0.3,
-              }}
-            >
-              TEST MODE
-            </span>
           </div>
           <div style={{ marginTop: 10, fontSize: 12.5, opacity: 0.85 }}>{title}</div>
           <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>₹{amount}</div>
@@ -170,7 +171,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
               <div style={{ fontSize: 11.5, color: '#666', marginBottom: 10 }}>{description}</div>
               {(
                 [
-                  { id: 'upi', label: 'UPI', hint: 'Pay via any UPI app' },
+                  { id: 'upi', label: 'UPI', hint: 'Pay securely with Razorpay' },
                   { id: 'card', label: 'Card', hint: 'Credit / Debit card' },
                   { id: 'netbanking', label: 'Netbanking', hint: 'All major banks' },
                 ] as { id: Method; label: string; hint: string }[]
@@ -205,7 +206,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                 </div>
               ))}
               <button
-                onClick={proceedToDetails}
+                onClick={method === 'upi' ? pay : proceedToDetails}
                 style={{
                   width: '100%',
                   marginTop: 6,
@@ -219,7 +220,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                   cursor: 'pointer',
                 }}
               >
-                Continue
+                {method === 'upi' ? `Pay ₹${amount} via UPI` : 'Continue'}
               </button>
               <div
                 onClick={onClose}
@@ -232,14 +233,6 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
 
           {step === 'details' && (
             <>
-              {method === 'upi' && (
-                <input
-                  placeholder="yourname@upi"
-                  value={upiId}
-                  onChange={(e) => setUpiId(e.target.value)}
-                  style={detailsInputStyle}
-                />
-              )}
               {method === 'card' && (
                 <>
                   <input
@@ -315,7 +308,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                   animation: 'spin 0.8s linear infinite',
                 }}
               />
-              <div style={{ fontSize: 12.5, color: '#555' }}>Processing payment…</div>
+              <div style={{ fontSize: 12.5, color: '#555' }}>Opening Razorpay Checkout…</div>
             </div>
           )}
 
@@ -338,7 +331,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
                 ✓
               </div>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Payment successful</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Unlocking your account…</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Unlocking cartoons…</div>
             </div>
           )}
 
@@ -360,10 +353,8 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
               >
                 !
               </div>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Razorpay is not configured</div>
-              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-                Add VITE_RAZORPAY_KEY_ID and a backend order API to enable live payments.
-              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Payment couldn't start</div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>Please try again.</div>
               <button
                 onClick={() => setStep('method')}
                 style={{

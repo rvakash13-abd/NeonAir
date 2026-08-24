@@ -7,9 +7,9 @@ type Mode = 'login' | 'signup';
 
 interface Props {
   onLogin: (username: string, password: string) => Promise<void>;
-  onSignup: (username: string, password: string) => Promise<void>;
+  onSignup: (username: string, email: string, password: string) => Promise<void>;
   onLoginWithGoogle: () => Promise<void>;
-  onResetPassword: (email: string) => Promise<void>;
+  onResetPassword: (username: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -41,6 +41,7 @@ function GoogleIcon() {
 export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onResetPassword, loading }: Props) {
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [status, setStatus] = useState('');
@@ -57,7 +58,13 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
     }
     setStatus(mode === 'signup' ? 'Creating your account…' : 'Logging you in…');
     try {
-      if (mode === 'signup') await onSignup(username, password);
+      if (mode === 'signup') {
+        if (!email.trim()) {
+          setStatus('Please enter your email address.');
+          return;
+        }
+        await onSignup(username, email, password);
+      }
       else await onLogin(username, password);
     } catch (e: any) {
       const msg = friendlyAuthError(e);
@@ -83,7 +90,8 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
       return;
     }
     try {
-      setStatus('Password reset is unavailable for username-only accounts.');
+      await onResetPassword(username);
+      setStatus('Password reset link sent to your account email.');
     } catch (e: any) {
       setStatus(friendlyAuthError(e));
     }
@@ -179,6 +187,17 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
               onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
             />
+            {mode === 'signup' && (
+              <input
+                className="night-input"
+                type="email"
+                placeholder="Email address"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submit()}
+              />
+            )}
             <div className="relative flex items-center">
               <input
                 className="night-input pr-11"
@@ -195,12 +214,18 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             </div>
 
             {mode === 'signup' && (
-              <div className="text-center text-[11px] text-white/35">Username and password are enough to create your account.</div>
+              <div className="text-center text-[11px] text-white/35">Your email is used for account recovery.</div>
             )}
 
             <motion.button whileTap={{ scale: 0.97 }} className="night-submit mt-1" onClick={submit} disabled={loading}>
               {mode === 'signup' ? 'Create account' : 'Log in'}
             </motion.button>
+
+            {mode === 'login' && (
+              <button type="button" className="text-[12px] text-white/55 hover:text-white transition-colors" onClick={forgot} disabled={loading}>
+                Forgot password?
+              </button>
+            )}
 
             <div className="text-center text-[12px] min-h-[16px] text-white/50 mt-1">{status}</div>
           </div>

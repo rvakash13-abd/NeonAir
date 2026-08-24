@@ -17,7 +17,7 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
   const items = templatesByCategory[activeCat] || [];
 
   async function handlePick(tpl: Template) {
-    if (!subscribed) return;
+    if (!subscribed && !tpl.free) return;
     setLoadingUrl(tpl.url);
     try {
       await onPick(tpl);
@@ -67,10 +67,15 @@ export default function TemplatesModal({ onClose, subscribed, onSubscribe, onPic
                     src={tpl.url}
                     alt={tpl.name}
                     className="w-full h-full object-cover"
-                    style={{ filter: subscribed ? 'none' : 'blur(3px) brightness(0.5)' }}
+                    style={{ filter: subscribed || tpl.free ? 'none' : 'blur(3px) brightness(0.5)' }}
                   />
-                  {!subscribed && (
+                  {!subscribed && !tpl.free && (
                     <div className="absolute inset-0 flex items-center justify-center text-white/70 text-base">🔒</div>
+                  )}
+                  {tpl.free && !subscribed && (
+                    <div className="absolute top-1 left-1 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/80 text-white font-medium">
+                      FREE
+                    </div>
                   )}
                   {loadingUrl === tpl.url && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] text-white">

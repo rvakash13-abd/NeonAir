@@ -11,13 +11,8 @@ import {
   signInWithPopup,
   type User,
 } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-
-const INTERNAL_EMAIL_DOMAIN = '@accounts.neonair.invalid';
-
-function usernameEmail(username: string) {
-  return `${username.trim().toLowerCase()}${INTERNAL_EMAIL_DOMAIN}`;
-}
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 
 export interface AppUser {
   uid: string;
@@ -27,9 +22,9 @@ export interface AppUser {
 const FRIENDLY_ERRORS: Record<string, string> = {
   'auth/email-already-in-use': 'An account with that email already exists — try logging in instead.',
   'auth/invalid-email': "That email address doesn't look right.",
-  'auth/user-not-found': 'No account found with that email — try signing up.',
+  'auth/user-not-found': 'No account found with that username — try signing up.',
   'auth/wrong-password': 'Incorrect password.',
-  'auth/invalid-credential': 'Incorrect email or password.',
+  'auth/invalid-credential': 'Incorrect username or password.',
   'auth/weak-password': 'Password should be at least 6 characters.',
   'auth/too-many-requests': 'Too many attempts — please wait a moment and try again.',
   'auth/popup-closed-by-user': 'Google sign-in was closed before finishing.',
@@ -48,7 +43,7 @@ export function useAuth() {
     const unsub = onAuthStateChanged(auth, (fbUser: User | null) => {
       setUser(fbUser ? {
         uid: fbUser.uid,
-        email: fbUser.email?.endsWith(INTERNAL_EMAIL_DOMAIN) ? null : fbUser.email,
+        email: fbUser.email,
       } : null);
     });
     return unsub;
@@ -57,18 +52,32 @@ export function useAuth() {
   const login = useCallback(async (username: string, password: string) => {
     setAuthLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, usernameEmail(username), password);
+      const usernameDoc = await getDoc(doc(db, 'usernames', username.trim().toLowerCase()));
+      if (!usernameDoc.exists()) {
+        const error: any = new Error('No account found with that username.');
+        error.code = 'auth/user-not-found';
+        throw error;
+      }
+      await signInWithEmailAndPassword(auth, usernameDoc.data().email as string, password);
     } finally {
       setAuthLoading(false);
     }
   }, []);
 
   const signup = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, email: string, password: string) => {
       setAuthLoading(true);
       try {
-        const cred = await createUserWithEmailAndPassword(auth, usernameEmail(username), password);
+        const key = username.trim().toLowerCase();
+        const existing = await getDoc(doc(db, 'usernames', key));
+        if (existing.exists()) {
+          const error: any = new Error('That username is already taken.');
+          error.code = 'auth/email-already-in-use';
+          throw error;
+        }
+        const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         await updateProfile(cred.user, { displayName: username.trim() });
+        await setDoc(doc(db, 'usernames', key), { email: email.trim(), uid: cred.user.uid });
       } finally {
         setAuthLoading(false);
       }
@@ -89,11 +98,14 @@ export function useAuth() {
     await fbSignOut(auth);
   }, []);
 
-  // Sends a reset-password email with a link. By default the link opens a
-  // Firebase-hosted page. To handle it inside your own app, set a custom
-  // action URL in Firebase Console → Authentication → Templates.
-  const resetPassword = useCallback(async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
+  const resetPassword = useCallback(async (username: string) => {
+    const usernameDoc = await getDoc(doc(db, 'usernames', username.trim().toLowerCase()));
+    if (!usernameDoc.exists()) {
+      const error: any = new Error('No account found with that username.');
+      error.code = 'auth/user-not-found';
+      throw error;
+    }
+    await sendPasswordResetEmail(auth, usernameDoc.data().email as string);
   }, []);
 
   // Use if you set a custom action URL and parse `oobCode` from it yourself.
