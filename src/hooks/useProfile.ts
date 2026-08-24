@@ -45,6 +45,7 @@ export function useProfile() {
         bb = data.bio || '';
         sub = !!data.subscribed;
       }
+      await setDoc(doc(db!, 'profiles', user.uid), { subscribed: sub }, { merge: true });
     } catch (e) {
       console.error('Failed to load saved drawings:', e);
     }
@@ -94,9 +95,6 @@ export function useProfile() {
     [persist]
   );
 
-  // NOTE: this just flips a flag on the profile doc — there's no real payment
-  // step here. Wire this up to a Stripe/RevenueCat webhook (or similar) that
-  // sets `subscribed: true` server-side once a payment actually succeeds.
   const setSubscribed = useCallback(
     async (value: boolean) => {
       setSubscribedState(value);

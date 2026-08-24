@@ -11,7 +11,6 @@ import GalleryPanel from './components/GalleryPanel';
 import { StatsModal, HistoryModal, ProfileModal } from './components/Modals';
 import TemplatesModal from './components/TemplatesModal';
 import type { Template } from './lib/templates';
-import RazorpayModal from './components/RazorpayModal';
 
 const CHALLENGES = [
   'Draw a creature that lives in clouds', 'Draw your morning coffee', 'Draw a robot pet',
@@ -29,8 +28,6 @@ function todaysChallenge() {
 }
 
 type Stage = 'boot' | 'landing' | 'login' | 'nickname' | 'welcome' | 'app';
-
-const FREE_DRAWING_LIMIT = 2;
 
 export default function App() {
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -72,8 +69,6 @@ export default function App() {
 
   const [modal, setModal] = useState<null | 'stats' | 'history' | 'profile' | 'templates'>(null);
   const [strokesTick, setStrokesTick] = useState(0); // bump to re-render stats/history reading engine
-  const [showDrawingPaywall, setShowDrawingPaywall] = useState(false);
-
   const challengeText = useRef(todaysChallenge()).current;
 
   // ── init engine once canvases exist ──
@@ -327,21 +322,9 @@ export default function App() {
               const nn = prompt(`Rename "${name}" to:`, name);
               if (nn) profile.renameDrawing(name, nn, eng());
             }}
-            onDuplicate={(name) => {
-              if (!profile.subscribed && drawingNames.length >= FREE_DRAWING_LIMIT) {
-                setShowDrawingPaywall(true);
-                return;
-              }
-              profile.duplicateDrawing(name, eng());
-            }}
+            onDuplicate={(name) => profile.duplicateDrawing(name, eng())}
             onDelete={(name) => profile.deleteDrawing(name, eng())}
-            onNew={(name) => {
-              if (!profile.subscribed && drawingNames.length >= FREE_DRAWING_LIMIT) {
-                setShowDrawingPaywall(true);
-                return;
-              }
-              profile.newDrawing(name, eng());
-            }}
+            onNew={(name) => profile.newDrawing(name, eng())}
             onTemplates={() => setModal('templates')}
             onStats={() => setModal('stats')}
             onHistory={() => setModal('history')}
@@ -384,15 +367,6 @@ export default function App() {
             />
           )}
 
-          {showDrawingPaywall && (
-            <RazorpayModal
-              title="Scribble Air Pro"
-              description="You've used your 2 free drawings. Subscribe for unlimited drawings."
-              amount={99}
-              onClose={() => setShowDrawingPaywall(false)}
-              onSuccess={() => profile.setSubscribed(true)}
-            />
-          )}
         </>
       )}
 
