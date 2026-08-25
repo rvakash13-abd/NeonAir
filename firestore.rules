@@ -2,6 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /usernames/{username} {
       allow read: if true;
       allow create: if request.auth != null
@@ -12,7 +13,23 @@ service cloud.firestore {
     }
 
     match /profiles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // First-time doc creation: allow it, but only if subscribed is absent or false.
+      // No client should ever be able to create their own profile as already-subscribed.
+      allow create: if request.auth != null 
+        && request.auth.uid == userId
+        && (!('subscribed' in request.resource.data) 
+            || request.resource.data.subscribed == false);
+
+      // Updates: owner can write anything EXCEPT changing `subscribed`.
+      // subscribed must stay exactly what it already was in the existing doc.
+      allow update: if request.auth != null 
+        && request.auth.uid == userId
+        && request.resource.data.subscribed == resource.data.subscribed;
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
   }
 }

@@ -95,6 +95,13 @@ export function useProfile() {
     [persist]
   );
 
+  // NOTE: This performs a client-side write to `subscribed`. Firestore security
+  // rules now block clients from changing this field (see firestore.rules), so
+  // calling this will fail for real users. The real source of truth for
+  // `subscribed` is set server-side by /api/verify-payment after a Razorpay
+  // payment is verified. This function is kept only for potential local/dev
+  // testing and is no longer wired up to any UI — prefer deleting it once
+  // the payment flow is fully confirmed working end-to-end.
   const setSubscribed = useCallback(
     async (value: boolean) => {
       setSubscribedState(value);
@@ -102,6 +109,16 @@ export function useProfile() {
     },
     [persist]
   );
+
+  // Updates only local React state to reflect a subscription that was
+  // already confirmed and written server-side (via the verified Razorpay
+  // webhook / /api/verify-payment). Does NOT write to Firestore itself —
+  // the server already did that using the Admin SDK, which bypasses
+  // security rules. This just makes the UI reflect it immediately instead
+  // of waiting for a full profile refetch.
+  const markSubscribedLocally = useCallback(() => {
+    setSubscribedState(true);
+  }, []);
 
   const saveProfileDetails = useCallback(
     async (name: string, newBio: string) => {
@@ -320,6 +337,7 @@ export function useProfile() {
     bio,
     subscribed,
     setSubscribed,
+    markSubscribedLocally,
     drawings,
     favorites,
     history,

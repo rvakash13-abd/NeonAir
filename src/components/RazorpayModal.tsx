@@ -82,23 +82,25 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
         description: title,
         handler: async function (response: any) {
           try {
+            const { getAuth } = await import('firebase/auth');
+            const idToken = await getAuth().currentUser?.getIdToken();
             const verificationResponse = await fetch('/api/verify-payment', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response),
-            });
-            const verification = await verificationResponse.json();
-            if (!verificationResponse.ok || !verification.verified) {
-              throw new Error(verification.error || 'Payment verification failed');
-            }
-            setStep('success');
-            await onSuccess();
-            window.setTimeout(onClose, 1200);
-          } catch (error) {
-            console.error('Razorpay payment verification failed', error);
-            setStep('failed');
-          }
-        },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...response, idToken }),
+    });
+    const verification = await verificationResponse.json();
+    if (!verificationResponse.ok || !verification.verified) {
+      throw new Error(verification.error || 'Payment verification failed');
+    }
+    setStep('success');
+    await onSuccess();
+    window.setTimeout(onClose, 1200);
+  } catch (error) {
+    console.error('Razorpay payment verification failed', error);
+    setStep('failed');
+  }
+},
         prefill: {
           method,
           ...(method === 'upi' && upiId ? { vpa: upiId } : {}),

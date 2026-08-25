@@ -352,7 +352,7 @@ export default function App() {
             <TemplatesModal
               onClose={() => setModal(null)}
               subscribed={profile.subscribed}
-              onSubscribe={() => profile.setSubscribed(true)}
+              onSubscribe={() => profile.markSubscribedLocally()}
               onPick={onPickTemplate}
             />
           )}
