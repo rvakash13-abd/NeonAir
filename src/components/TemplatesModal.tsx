@@ -5,7 +5,7 @@ import RazorpayModal from './RazorpayModal';
 interface Props {
   onClose: () => void;
   subscribed: boolean;
-  onSubscribe: () => Promise<void>;
+  onSubscribe: () => Promise<void> | void;
   onPick: (tpl: Template) => Promise<void>;
 }
 
