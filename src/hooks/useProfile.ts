@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { useSession } from '@clerk/clerk-react';
 import type { DrawEngine, Stroke } from '../lib/engine';
 
 interface ProfileUser {
@@ -13,10 +12,77 @@ export interface HistorySnap {
   strokes: Stroke[];
 }
 
+// Mirrors the server's free tier (catalog.js) so the client renders sane locks
+// even before the first profile fetch and during API hiccups.
+export interface Features {
+  templates: boolean;
+  background_images: boolean;
+  export_transparent: boolean;
+  replay: boolean;
+  record: boolean;
+  battles: boolean;
+}
+
+export const FREE_TIER_FEATURES: Features = {
+  templates: false,
+  background_images: false,
+  export_transparent: false,
+  replay: false,
+  record: false,
+  battles: true,
+};
+
+export const DEFAULT_GALLERY_LIMIT = 3;
+
+// Fetches the user's profile document from MongoDB via the serverless API.
+// The Clerk session JWT (Authorization header) identifies the user server-side —
+// the caller's uid is never trusted directly.
+function useProfileApi() {
+  const { session } = useSession();
+  const tokenFnRef = useRef<(() => Promise<string | null>) | null>(null);
+
+  if (session) {
+    tokenFnRef.current = () => session.getToken();
+  }
+
+  const apiRequest = useCallback(async (body?: Record<string, any>) => {
+    const token = (await tokenFnRef.current?.()) || null;
+    const res = await fetch('/api/profile', {
+      method: body ? 'POST' : 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const type = res.headers.get('content-type') || '';
+    if (!type.includes('application/json')) {
+      // Plain `vite dev` without the dev API server returns SPA HTML for /api —
+      // surface that clearly instead of silently discarding data.
+      throw new Error('Save failed — API unavailable. Run via `npm run dev` (with the dev API server).');
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || `Request failed (${res.status})`);
+    }
+    return data;
+  }, []);
+
+  return apiRequest;
+}
+
 export function useProfile() {
+  const apiRequest = useProfileApi();
   const [nickname, setNickname] = useState<string | null>(null);
   const [bio, setBio] = useState('');
   const [subscribed, setSubscribedState] = useState(false);
+  const [role, setRole] = useState<string>('user');
+  const [plan, setPlan] = useState<string | null>(null);
+  const [subscribedUntil, setSubscribedUntil] = useState<number | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [avatar, setAvatar] = useState<string>('');
+  const [features, setFeatures] = useState<Features>({ ...FREE_TIER_FEATURES });
+  const [galleryLimit, setGalleryLimit] = useState<number>(DEFAULT_GALLERY_LIMIT);
   const [drawings, setDrawings] = useState<Record<string, Stroke[]>>({});
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, HistorySnap[]>>({});
@@ -26,65 +92,108 @@ export function useProfile() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
   const drawStart = useRef(Date.now());
 
-  const load = useCallback(async (user: ProfileUser, engine: DrawEngine) => {
-    userRef.current = user;
-    let nn: string | null = null;
-    let bb = '';
-    let sub = false;
-    let dr: Record<string, Stroke[]> = {};
-    let fv: Record<string, boolean> = {};
-    let hs: Record<string, HistorySnap[]> = {};
-    try {
-      const snap = await getDoc(doc(db!, 'profiles', user.uid));
-      if (snap.exists()) {
-        const data = snap.data() as any;
-        dr = data.drawings || {};
-        fv = data.favorites || {};
-        hs = data.history || {};
-        nn = data.nickname || null;
-        bb = data.bio || '';
-        sub = !!data.subscribed;
+  const load = useCallback(
+    async (user: ProfileUser, engine: DrawEngine) => {
+      userRef.current = user;
+      let nn: string | null = null;
+      let bb = '';
+      let sub = false;
+      let rl = 'user';
+      let pl = null as string | null;
+      let until = null as number | null;
+      let pays: any[] = [];
+      let av = null as string | null;
+      let ft: Features = { ...FREE_TIER_FEATURES };
+      let gl = DEFAULT_GALLERY_LIMIT;
+      let dr: Record<string, Stroke[]> = {};
+      let fv: Record<string, boolean> = {};
+      let hs: Record<string, HistorySnap[]> = {};
+      try {
+        const { profile } = await apiRequest();
+        if (profile) {
+          dr = profile.drawings || {};
+          fv = profile.favorites || {};
+          hs = profile.history || {};
+          nn = profile.nickname || null;
+          bb = profile.bio || '';
+          sub = !!profile.subscribed || (profile.subscribedUntil || 0) > Date.now();
+          rl = profile.role || 'user';
+          pl = profile.plan || null;
+          until = profile.subscribedUntil || null;
+          pays = profile.payments || [];
+          av = profile.avatar || null;
+          ft = profile.features ? { ...FREE_TIER_FEATURES, ...profile.features } : ft;
+          gl = typeof profile.galleryLimit === 'number' ? profile.galleryLimit : DEFAULT_GALLERY_LIMIT;
+        }
+      } catch (e) {
+        console.error('Failed to load saved drawings:', e);
       }
-      await setDoc(doc(db!, 'profiles', user.uid), { subscribed: sub }, { merge: true });
+
+      // Always start a fresh, blank drawing on login/reopen instead of
+      // resuming the last-open one. Existing saved drawings are untouched
+      // and stay browsable in the gallery — this just picks a name that
+      // doesn't collide with any of them for the new blank session.
+      let cur = 'Untitled';
+      let n = 2;
+      while (dr[cur]) {
+        cur = 'Untitled ' + n;
+        n++;
+      }
+      dr = { ...dr, [cur]: [] };
+
+      setNickname(nn);
+      setBio(bb);
+      setSubscribedState(sub);
+      setRole(rl);
+      setPlan(pl);
+      setSubscribedUntil(until);
+      setPayments(pays);
+      setAvatar(av || '');
+      setFeatures(ft);
+      setGalleryLimit(gl);
+      setDrawings(dr);
+      setFavorites(fv);
+      setHistory(hs);
+      setCurrentName(cur);
+      drawStart.current = Date.now();
+      engine.setStrokes([]);
+      return nn;
+    },
+    [apiRequest]
+  );
+
+  // Re-fetches just the account-level fields (role, plan, subscription,
+  // payments) after a payment or an admin role change — keeps current
+  // drawing state untouched.
+  const refresh = useCallback(async () => {
+    try {
+      const { profile } = await apiRequest();
+      if (!profile) return;
+      setSubscribedState(!!profile.subscribed || (profile.subscribedUntil || 0) > Date.now());
+      setRole(profile.role || 'user');
+      setPlan(profile.plan || null);
+      setSubscribedUntil(profile.subscribedUntil || null);
+      setPayments(profile.payments || []);
+      setAvatar(profile.avatar || '');
+      setFeatures(profile.features ? { ...FREE_TIER_FEATURES, ...profile.features } : { ...FREE_TIER_FEATURES });
+      setGalleryLimit(typeof profile.galleryLimit === 'number' ? profile.galleryLimit : DEFAULT_GALLERY_LIMIT);
     } catch (e) {
-      console.error('Failed to load saved drawings:', e);
+      console.error('Failed to refresh profile:', e);
+      throw e;
     }
-
-    // Always start a fresh, blank drawing on login/reopen instead of
-    // resuming the last-open one. Existing saved drawings are untouched
-    // and stay browsable in the gallery — this just picks a name that
-    // doesn't collide with any of them for the new blank session.
-    let cur = 'Untitled';
-    let n = 2;
-    while (dr[cur]) {
-      cur = 'Untitled ' + n;
-      n++;
-    }
-    dr = { ...dr, [cur]: [] };
-
-    setNickname(nn);
-    setBio(bb);
-    setSubscribedState(sub);
-    setDrawings(dr);
-    setFavorites(fv);
-    setHistory(hs);
-    setCurrentName(cur);
-    drawStart.current = Date.now();
-    engine.setStrokes([]);
-    return nn;
-  }, []);
+  }, [apiRequest]);
 
   const persist = useCallback(
     async (partial: Record<string, any>) => {
       if (!userRef.current) return;
       try {
-        await setDoc(doc(db!, 'profiles', userRef.current.uid), partial, { merge: true });
+        await apiRequest(partial);
       } catch (e) {
         console.error('Save failed:', e);
         throw e;
       }
     },
-    []
+    [apiRequest]
   );
 
   const saveNicknameOnly = useCallback(
@@ -95,13 +204,9 @@ export function useProfile() {
     [persist]
   );
 
-  // NOTE: This performs a client-side write to `subscribed`. Firestore security
-  // rules now block clients from changing this field (see firestore.rules), so
-  // calling this will fail for real users. The real source of truth for
-  // `subscribed` is set server-side by /api/verify-payment after a Razorpay
-  // payment is verified. This function is kept only for potential local/dev
-  // testing and is no longer wired up to any UI — prefer deleting it once
-  // the payment flow is fully confirmed working end-to-end.
+  // Mirrors the legacy Firebase helper, but MongoDB-backed `subscribed` can
+  // only be flipped server-side by /api/verify-payment after a verified
+  // Razorpay payment. Kept only for local/dev testing;  no longer wired to UI.
   const setSubscribed = useCallback(
     async (value: boolean) => {
       setSubscribedState(value);
@@ -111,20 +216,17 @@ export function useProfile() {
   );
 
   // Updates only local React state to reflect a subscription that was
-  // already confirmed and written server-side (via the verified Razorpay
-  // webhook / /api/verify-payment). Does NOT write to Firestore itself —
-  // the server already did that using the Admin SDK, which bypasses
-  // security rules. This just makes the UI reflect it immediately instead
-  // of waiting for a full profile refetch.
+  // already confirmed and written server-side. Does NOT write to MongoDB
+  // itself — the server already did that.
   const markSubscribedLocally = useCallback(() => {
     setSubscribedState(true);
   }, []);
 
   const saveProfileDetails = useCallback(
-    async (name: string, newBio: string) => {
+    async (name: string, newBio: string, avatar = '') => {
       setNickname(name);
       setBio(newBio);
-      await persist({ nickname: name, bio: newBio, email: userRef.current?.email });
+      await persist({ nickname: name, bio: newBio, avatar, email: userRef.current?.email });
     },
     [persist]
   );
@@ -325,6 +427,13 @@ export function useProfile() {
     setNickname(null);
     setBio('');
     setSubscribedState(false);
+    setRole('user');
+    setPlan(null);
+    setSubscribedUntil(null);
+    setPayments([]);
+    setAvatar('');
+    setFeatures({ ...FREE_TIER_FEATURES });
+    setGalleryLimit(DEFAULT_GALLERY_LIMIT);
     setDrawings({});
     setFavorites({});
     setHistory({});
@@ -336,6 +445,15 @@ export function useProfile() {
     nickname,
     bio,
     subscribed,
+    role,
+    avatar,
+    plan,
+    subscribedUntil,
+    payments,
+    features,
+    galleryLimit,
+    isAdmin: role === 'admin' || role === 'superadmin',
+    isSuperadmin: role === 'superadmin',
     setSubscribed,
     markSubscribedLocally,
     drawings,
@@ -345,6 +463,7 @@ export function useProfile() {
     saveStatus,
     drawStartTime: drawStart,
     load,
+    refresh,
     saveNicknameOnly,
     saveProfileDetails,
     scheduleSave,

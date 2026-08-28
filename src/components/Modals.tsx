@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import type { Stroke } from '../lib/engine';
 import type { HistorySnap } from '../hooks/useProfile';
 
@@ -39,6 +40,7 @@ export function StatsModal({
   return (
     <div className="modal-overlay">
       <div className="modal-box">
+        <div className="close-btn" onClick={onClose} title="Close"><X size={16} /></div>
         <h3>Drawing Statistics</h3>
         <div>
           {rows.map(([k, v]) => (
@@ -48,7 +50,6 @@ export function StatsModal({
             </div>
           ))}
         </div>
-        <div className="auth-submit mt-2.5 text-center" onClick={onClose}>Close</div>
       </div>
     </div>
   );
@@ -66,6 +67,7 @@ export function HistoryModal({
   return (
     <div className="modal-overlay">
       <div className="modal-box">
+        <div className="close-btn" onClick={onClose} title="Close"><X size={16} /></div>
         <h3>Version History</h3>
         <div>
           {!history.length && <div className="stat-row">No saved versions yet</div>}
@@ -75,7 +77,6 @@ export function HistoryModal({
             </div>
           ))}
         </div>
-        <div className="auth-submit mt-2.5 text-center" onClick={onClose}>Close</div>
       </div>
     </div>
   );
@@ -122,6 +123,7 @@ export function ProfileModal({
   return (
     <div className="modal-overlay">
       <div className="modal-box">
+        <div className="close-btn" onClick={onClose} title="Close"><X size={16} /></div>
         <h3>My Profile</h3>
         <div className="profile-field-label">Name</div>
         <input className="auth-input" style={{ fontSize: 12 }} maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
@@ -139,9 +141,8 @@ export function ProfileModal({
         <div style={{ fontSize: 11.5, color: 'var(--text-dim)', padding: '4px 2px' }}>
           {drawingCount} {drawingCount === 1 ? 'drawing saved to this account' : 'drawings saved to this account'}
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(0,220,255,0.8)', marginTop: 4, minHeight: 14 }}>{status}</div>
+        <div style={{ fontSize: 11, color: 'var(--kid-green)', marginTop: 4, minHeight: 14 }}>{status}</div>
         <div className="auth-submit mt-2 text-center" onClick={save}>Save Changes</div>
-        <div className="gbtn mt-1.5 text-center" onClick={onClose}>Close</div>
       </div>
     </div>
   );

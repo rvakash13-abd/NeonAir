@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { Settings, Menu } from 'lucide-react';
 import { DrawEngine, type Color, type ToolType, type Stroke } from './lib/engine';
 import { useAuth } from './hooks/useAuth';
-import { useProfile } from './hooks/useProfile';
+import { useProfile, type Features } from './hooks/useProfile';
+import { useApi } from './hooks/useApi';
 import LandingScreen from './components/LandingScreen';
 import LoginScreen from './components/LoginScreen';
 import { NicknameScreen, WelcomeScreen, LoadOverlay } from './components/StageOverlays';
@@ -10,6 +12,11 @@ import Panel from './components/Panel';
 import GalleryPanel from './components/GalleryPanel';
 import { StatsModal, HistoryModal, ProfileModal } from './components/Modals';
 import TemplatesModal from './components/TemplatesModal';
+import SubscriptionModal from './components/SubscriptionModal';
+import FriendsModal from './components/FriendsModal';
+import GroupsModal, { type Group } from './components/GroupsModal';
+import CompetitionsModal from './components/CompetitionsModal';
+import AdminPage from './components/AdminPage';
 import type { Template } from './lib/templates';
 
 const CHALLENGES = [
@@ -27,7 +34,7 @@ function todaysChallenge() {
   return CHALLENGES[dayOfYear % CHALLENGES.length];
 }
 
-type Stage = 'boot' | 'landing' | 'login' | 'nickname' | 'welcome' | 'app';
+type Stage = 'boot' | 'landing' | 'login' | 'nickname' | 'welcome' | 'app' | 'admin';
 
 export default function App() {
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,8 +44,9 @@ export default function App() {
   const bgImgInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
 
-  const { user, authLoading, login, signup, logout, resetPassword, loginWithGoogle } = useAuth();
+  const { user, logout } = useAuth();
   const profile = useProfile();
+  const api = useApi();
 
   const [stage, setStage] = useState<Stage>('boot');
   const [isNewUser, setIsNewUser] = useState(false);
@@ -46,7 +54,7 @@ export default function App() {
   const [loadPct, setLoadPct] = useState(0);
   const [loadMsg, setLoadMsg] = useState('Starting…');
 
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [galleryHidden, setGalleryHidden] = useState(true);
 
@@ -60,6 +68,8 @@ export default function App() {
   const [canvasMode, setCanvasMode] = useState(false);
   const [recording, setRecording] = useState(false);
   const [bgImageActive, setBgImageActive] = useState(false);
+  const [cameraSleeping, setCameraSleeping] = useState(false);
+  const [friendRequests, setFriendRequests] = useState(0);
 
   const [hint, setHint] = useState('Initialising…');
   const [modeBadge, setModeBadge] = useState({ cls: '', text: '' });
@@ -67,7 +77,15 @@ export default function App() {
   const [zoomShow, setZoomShow] = useState(false);
   const [dot, setDot] = useState({ show: false, x: 0, y: 0, size: 0, color: '', glow: '' });
 
-  const [modal, setModal] = useState<null | 'stats' | 'history' | 'profile' | 'templates'>(null);
+  const hintRef = useRef('');
+  const modeBadgeRef = useRef({ cls: '', text: '' });
+  const dotRef = useRef<{ show: boolean; x: number; y: number; size: number; color: string; glow: string } | null>(null);
+
+  const [modal, setModal] = useState<
+    null | 'stats' | 'history' | 'profile' | 'templates' | 'friends' | 'groups' | 'battles' | 'plan'
+  >(null);
+  const [planReason, setPlanReason] = useState('');
+  const [battleSource, setBattleSource] = useState<Group | null>(null);
   const [strokesTick, setStrokesTick] = useState(0); // bump to re-render stats/history reading engine
   const challengeText = useRef(todaysChallenge()).current;
 
@@ -77,8 +95,19 @@ export default function App() {
     const engine = new DrawEngine(bgCanvasRef.current, drawCanvasRef.current, camRef.current, {
       onProgress: (pct, msg) => { setLoadPct(pct); setLoadMsg(msg); },
       onReady: () => setShowLoadOverlay(false),
-      onHint: setHint,
-      onModeBadge: (cls, text) => setModeBadge({ cls, text }),
+      onHint: (h) => {
+        if (hintRef.current !== h) {
+          hintRef.current = h;
+          setHint(h);
+        }
+      },
+      onModeBadge: (cls, text) => {
+        const cur = modeBadgeRef.current;
+        if (cur.cls !== cls || cur.text !== text) {
+          modeBadgeRef.current = { cls, text };
+          setModeBadge({ cls, text });
+        }
+      },
       onZoomFlash: (pct) => {
         setZoomPct(pct);
         setZoomShow(true);
@@ -89,7 +118,15 @@ export default function App() {
         setStrokesTick((t) => t + 1);
         if (engineRef.current) profile.scheduleSave(engineRef.current);
       },
-      onDot: (show, x, y, sz, c, glow) => setDot({ show, x, y, size: sz, color: c, glow }),
+      onDot: (show, x, y, sz, c, glow) => {
+        const cur = dotRef.current;
+        if (cur && cur.show === show && cur.x === x && cur.y === y && cur.size === sz && cur.color === c && cur.glow === glow) return;
+        const next = { show, x, y, size: sz, color: c, glow };
+        dotRef.current = next;
+        setDot(next);
+      },
+      onCamIdle: () => setCameraSleeping(true),
+      onCamWake: () => { setCameraSleeping(false); setShowLoadOverlay(false); },
     });
     engineRef.current = engine;
 
@@ -141,15 +178,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (stage !== 'app') return;
+    if (stage !== 'app') {
+      // Leaving the studio (admin page, welcome, logout…) releases the webcam.
+      const engine = engineRef.current;
+      if (engine?.mpReady) engine.hibernate();
+      return;
+    }
     const startTimer = window.setTimeout(() => {
       const engine = engineRef.current;
-      if (!engine || engine.mpReady || engine.stream) return;
+      if (!engine) return;
+      if (engine.mpReady) {
+        // Coming back to the canvas: restart the camera if it was hibernated.
+        if (engine.cameraOffForIdle) void engine.resumeCamera();
+        return;
+      }
       setShowLoadOverlay(true);
       void engine.start();
     }, 0);
     return () => window.clearTimeout(startTimer);
   }, [stage]);
+
+  const refreshFriendBadge = useCallback(async () => {
+    try {
+      const d = await api.get('/api/friends/requests');
+      setFriendRequests(typeof d?.count === 'number' ? d.count : 0);
+    } catch {
+      /* ignore polls while signed out / offline */
+    }
+  }, [api]);
+
+  useEffect(() => {
+    if (stage !== 'app' || !user) return;
+    void refreshFriendBadge();
+    const t = setInterval(refreshFriendBadge, 25000);
+    return () => clearInterval(t);
+  }, [stage, user, refreshFriendBadge]);
 
   function handleGetStarted() {
     setStage('login');
@@ -157,12 +220,13 @@ export default function App() {
 
   async function handleNicknameContinue(nickname: string) {
     setIsNewUser(true);
-    enterApp();
     try {
       await profile.saveNicknameOnly(nickname);
     } catch (error) {
       console.error('Failed to save nickname:', error);
+      alert('Could not save your nickname — the save server is unreachable. You can still draw; it will save again later.');
     }
+    enterApp();
   }
 
   function handleLogout() {
@@ -171,6 +235,14 @@ export default function App() {
 
   // ── panel handlers ──
   const eng = () => engineRef.current!;
+  // Feature gate: returns true when the feature is unlocked; otherwise it
+  // opens the plan modal with a reason and returns false (blocking the action).
+  const gate = (feature: keyof Features, reason: string): boolean => {
+    if (profile.features[feature]) return true;
+    setPlanReason(reason);
+    setModal('plan');
+    return false;
+  };
   const onColor = (c: Color) => { eng().setColor(c); setColorState(c); setIsEraser(false); };
   const onTool = (t: ToolType) => { eng().setTool(t); setToolState(t); setIsEraser(false); };
   const onSize = (v: number) => { eng().setSize(v); setSizeState(v); };
@@ -184,9 +256,13 @@ export default function App() {
   const onCamToggle = () => setCamPaused(eng().toggleCamPause());
   const onCanvasModeToggle = () => setCanvasMode(eng().toggleCanvasMode());
   const onPipFlip = () => eng().flipPip();
-  const onTransparentToggle = () => setTransparentExport(eng().toggleTransparentExport());
+  const onTransparentToggle = () => {
+    if (!gate('export_transparent', 'Unlock transparent PNG export with Pro.')) return;
+    setTransparentExport(eng().toggleTransparentExport());
+  };
   const onExport = () => eng().exportPNG(profile.currentName);
   const onPickTemplate = async (tpl: Template) => {
+    if (!gate('templates', 'Unlock the trace template library with Pro.')) return;
     await eng().setBgImageFromUrl(tpl.url);
     setCamPaused(true);
     setBgImageActive(true);
@@ -196,9 +272,21 @@ export default function App() {
     setCamPaused(false);
     setBgImageActive(false);
   };
-  const onReplay = () => eng().replay();
+  const onReplay = () => {
+    if (!gate('replay', 'Unlock drawing replay with Pro.')) return;
+    eng().replay();
+  };
+  const wakeCamera = async () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (await engine.resumeCamera()) {
+      setCameraSleeping(false);
+      setShowLoadOverlay(false);
+    }
+  };
   const onRecord = () => {
     if (recording) return;
+    if (!gate('record', 'Unlock recording your drawing with Pro.')) return;
     setRecording(true);
     const rec = eng().record(profile.currentName);
     recorderRef.current = rec || null;
@@ -207,11 +295,14 @@ export default function App() {
   const onThemeToggle = () => {
     setTheme((t) => {
       const next = t === 'dark' ? 'light' : 'dark';
-      document.body.classList.toggle('light', next === 'light');
+      document.body.classList.toggle('dark', next === 'dark');
       return next;
     });
   };
-  const onBgImageClick = () => bgImgInputRef.current?.click();
+  const onBgImageClick = () => {
+    if (!gate('background_images', 'Unlock importing your own background image with Pro.')) return;
+    bgImgInputRef.current?.click();
+  };
   const onBgImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
@@ -219,6 +310,16 @@ export default function App() {
       setCamPaused(true);
       setBgImageActive(true);
     }
+  };
+  const onNewDrawing = (rawName: string) => {
+    const limit = profile.galleryLimit;
+    const count = drawingNames.length;
+    if (limit >= 0 && count >= limit) {
+      setPlanReason(`Free keeps ${limit} drawings in your gallery — Pro is unlimited.`);
+      setModal('plan');
+      return;
+    }
+    profile.newDrawing(rawName, eng());
   };
 
   const drawingNames = Object.keys(profile.drawings);
@@ -255,9 +356,9 @@ export default function App() {
                 left: '50%',
                 transform: 'translateX(-50%)',
                 zIndex: 21,
-                background: 'rgba(0,0,0,0.55)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                color: '#fff',
+                background: 'var(--chip-bg)',
+                border: '1px solid var(--chip-border)',
+                color: 'var(--text)',
                 fontSize: 11,
                 padding: '5px 12px',
                 borderRadius: 20,
@@ -272,8 +373,40 @@ export default function App() {
             </div>
           )}
 
-          <div className="panel-toggle" style={{ right: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setPanelCollapsed((c) => !c)}>⚙</div>
-          <div className="panel-toggle" style={{ left: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setGalleryHidden((c) => !c)}>☰</div>
+          {cameraSleeping && (
+            <div
+              onClick={wakeCamera}
+              style={{
+                position: 'absolute',
+                top: 'max(110px, calc(env(safe-area-inset-top) + 98px))',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 22,
+                background: 'var(--chip-bg)',
+                border: '1.5px solid var(--accent)',
+                color: 'var(--text)',
+                fontSize: 11.5,
+                fontWeight: 700,
+                padding: '7px 14px',
+                borderRadius: 20,
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 6px 18px -8px rgba(0,0,0,0.4)',
+              }}
+            >
+              😴 Camera is asleep — tap to wake it
+            </div>
+          )}
+
+          <div className="panel-toggle" style={{ right: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setPanelCollapsed((c) => !c)} title="Drawing tools">
+            <Settings size={20} />
+          </div>
+          <div className="panel-toggle" style={{ left: 10, top: 'max(12px, env(safe-area-inset-top))' }} onClick={() => setGalleryHidden((c) => !c)} title="My drawings">
+            <Menu size={22} />
+          </div>
 
           <Panel
             collapsed={panelCollapsed}
@@ -316,6 +449,9 @@ export default function App() {
             favorites={profile.favorites}
             currentName={profile.currentName}
             saveStatus={profile.saveStatus}
+            isPro={profile.subscribed}
+            showAdmin={profile.isAdmin}
+            friendRequests={friendRequests}
             onSwitch={(name) => profile.switchDrawing(name, eng())}
             onToggleFavorite={(name) => profile.toggleFavorite(name, eng())}
             onRename={(name) => {
@@ -324,11 +460,16 @@ export default function App() {
             }}
             onDuplicate={(name) => profile.duplicateDrawing(name, eng())}
             onDelete={(name) => profile.deleteDrawing(name, eng())}
-            onNew={(name) => profile.newDrawing(name, eng())}
+            onNew={onNewDrawing}
             onTemplates={() => setModal('templates')}
             onStats={() => setModal('stats')}
             onHistory={() => setModal('history')}
             onProfile={() => setModal('profile')}
+            onFriends={() => setModal('friends')}
+            onGroups={() => setModal('groups')}
+            onBattles={() => { setBattleSource(null); setModal('battles'); }}
+            onPlan={() => { setPlanReason(''); setModal('plan'); }}
+            onAdmin={() => setStage('admin')}
             onLogout={handleLogout}
           />
 
@@ -352,8 +493,40 @@ export default function App() {
             <TemplatesModal
               onClose={() => setModal(null)}
               subscribed={profile.subscribed}
-              onSubscribe={() => profile.markSubscribedLocally()}
+              plan={profile.plan}
+              subscribedUntil={profile.subscribedUntil}
+              payments={profile.payments}
+              templatesAllowed={profile.features.templates}
+              onSubscribe={() => profile.refresh()}
+              onCancel={() => profile.refresh()}
               onPick={onPickTemplate}
+            />
+          )}
+          {modal === 'plan' && (
+            <SubscriptionModal
+              subscribed={profile.subscribed}
+              plan={profile.plan}
+              subscribedUntil={profile.subscribedUntil}
+              payments={profile.payments}
+              reason={planReason || undefined}
+              onClose={() => { setPlanReason(''); setModal(null); }}
+              onSubscribed={() => profile.refresh()}
+              onCancel={() => profile.refresh()}
+            />
+          )}
+          {modal === 'friends' && <FriendsModal onClose={() => setModal(null)} onChange={() => void refreshFriendBadge()} />}
+          {modal === 'groups' && (
+            <GroupsModal
+              onClose={() => setModal(null)}
+              onChallenge={(g) => { setBattleSource(g); setModal('battles'); }}
+            />
+          )}
+          {modal === 'battles' && (
+            <CompetitionsModal
+              onClose={() => { setBattleSource(null); setModal(null); }}
+              sourceGroup={battleSource}
+              getStrokes={() => eng().getStrokes()}
+              canBattle={profile.features.battles}
             />
           )}
           {modal === 'profile' && (
@@ -379,13 +552,13 @@ export default function App() {
 
       {stage === 'landing' && <LandingScreen onGetStarted={handleGetStarted} />}
 
-      {stage === 'login' && (
-        <LoginScreen
-          onLogin={login}
-          onSignup={signup}
-          onLoginWithGoogle={loginWithGoogle}
-          onResetPassword={resetPassword}
-          loading={authLoading}
+      {stage === 'login' && <LoginScreen />}
+
+      {stage === 'admin' && (
+        <AdminPage
+          superadmin={profile.isSuperadmin}
+          onBack={enterApp}
+          onChanged={() => void profile.refresh().catch(() => {})}
         />
       )}
 

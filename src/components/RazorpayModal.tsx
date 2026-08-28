@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from 'react';
+import { useClerk } from '@clerk/clerk-react';
 
 interface Props {
   title: string;
@@ -45,6 +46,7 @@ function loadRazorpayScript() {
 }
 
 export default function RazorpayModal({ title, description, amount, onClose, onSuccess }: Props) {
+  const { session } = useClerk();
   const [method, setMethod] = useState<Method>('upi');
   const [step, setStep] = useState<Step>('method');
   const [upiId, setUpiId] = useState('');
@@ -82,8 +84,7 @@ export default function RazorpayModal({ title, description, amount, onClose, onS
         description: title,
         handler: async function (response: any) {
           try {
-            const { getAuth } = await import('firebase/auth');
-            const idToken = await getAuth().currentUser?.getIdToken();
+            const idToken = await session?.getToken();
             const verificationResponse = await fetch('/api/verify-payment', {
               method: 'POST',
       headers: { 'Content-Type': 'application/json' },
