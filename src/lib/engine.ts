@@ -834,6 +834,13 @@ export class DrawEngine {
       const iw = this.bgImage.width * scale,
         ih = this.bgImage.height * scale;
       this.bgCtx.drawImage(this.bgImage, (W - iw) / 2, (H - ih) / 2, iw, ih);
+    } else if (this.camPaused) {
+      // FIX: camera paused but no bg image was ever set (e.g. the user just
+      // hit "Toggle camera" on its own). Previously this fell through to the
+      // `else` branch below and kept redrawing the live webcam feed every
+      // frame, so pausing appeared to do nothing at all. Now we simply stop
+      // repainting the background — whatever was last drawn there (the last
+      // live frame) stays frozen on screen until the camera is unpaused.
     } else {
       this.bgCtx.save();
       this.bgCtx.scale(-1, 1);

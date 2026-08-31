@@ -11,6 +11,7 @@ import GalleryPanel from './components/GalleryPanel';
 import { StatsModal, HistoryModal, ProfileModal } from './components/Modals';
 import TemplatesModal from './components/TemplatesModal';
 import type { Template } from './lib/templates';
+import Razorpay from './components/TestRazorpayUI';
 
 const CHALLENGES = [
   'Draw a creature that lives in clouds', 'Draw your morning coffee', 'Draw a robot pet',
@@ -146,7 +147,7 @@ export default function App() {
       const engine = engineRef.current;
       if (!engine || engine.mpReady || engine.stream) return;
       setShowLoadOverlay(true);
-      void engine.start();
+      void engine.start().finally(() => setShowLoadOverlay(false));
     }, 0);
     return () => window.clearTimeout(startTimer);
   }, [stage]);
@@ -170,37 +171,41 @@ export default function App() {
   }
 
   // ── panel handlers ──
-  const eng = () => engineRef.current!;
-  const onColor = (c: Color) => { eng().setColor(c); setColorState(c); setIsEraser(false); };
-  const onTool = (t: ToolType) => { eng().setTool(t); setToolState(t); setIsEraser(false); };
-  const onSize = (v: number) => { eng().setSize(v); setSizeState(v); };
-  const onEraserToggle = () => setIsEraser(eng().toggleEraser());
-  const onGradientToggle = () => setGradientOn(eng().toggleGradient());
-  const onUndo = () => eng().undo();
-  const onClear = () => eng().clear();
-  const onZoomIn = () => eng().zoomBy(1.25);
-  const onZoomOut = () => eng().zoomBy(0.8);
-  const onZoomReset = () => eng().zoomReset();
-  const onCamToggle = () => setCamPaused(eng().toggleCamPause());
-  const onCanvasModeToggle = () => setCanvasMode(eng().toggleCanvasMode());
-  const onPipFlip = () => eng().flipPip();
-  const onTransparentToggle = () => setTransparentExport(eng().toggleTransparentExport());
-  const onExport = () => eng().exportPNG(profile.currentName);
+  const eng = () => engineRef.current;
+  const onColor = (c: Color) => { setColorState(c); setIsEraser(false); eng()?.setColor(c); };
+  const onTool = (t: ToolType) => { setToolState(t); setIsEraser(false); eng()?.setTool(t); };
+  const onSize = (v: number) => { setSizeState(v); eng()?.setSize(v); };
+  const onEraserToggle = () => { const engine = eng(); if (engine) setIsEraser(engine.toggleEraser()); };
+  const onGradientToggle = () => { const engine = eng(); if (engine) setGradientOn(engine.toggleGradient()); };
+  const onUndo = () => eng()?.undo();
+  const onClear = () => eng()?.clear();
+  const onZoomIn = () => eng()?.zoomBy(1.25);
+  const onZoomOut = () => eng()?.zoomBy(0.8);
+  const onZoomReset = () => eng()?.zoomReset();
+  const onCamToggle = () => { const engine = eng(); if (engine) setCamPaused(engine.toggleCamPause()); };
+  const onCanvasModeToggle = () => { const engine = eng(); if (engine) setCanvasMode(engine.toggleCanvasMode()); };
+  const onPipFlip = () => eng()?.flipPip();
+  const onTransparentToggle = () => { const engine = eng(); if (engine) setTransparentExport(engine.toggleTransparentExport()); };
+  const onExport = () => eng()?.exportPNG(profile.currentName);
   const onPickTemplate = async (tpl: Template) => {
-    await eng().setBgImageFromUrl(tpl.url);
+    const engine = eng();
+    if (!engine) return;
+    await engine.setBgImageFromUrl(tpl.url);
     setCamPaused(true);
     setBgImageActive(true);
   };
   const onRemoveBgImage = () => {
-    eng().clearBgImage();
+    eng()?.clearBgImage();
     setCamPaused(false);
     setBgImageActive(false);
   };
-  const onReplay = () => eng().replay();
+  const onReplay = () => eng()?.replay();
   const onRecord = () => {
     if (recording) return;
+    const engine = eng();
+    if (!engine) return;
     setRecording(true);
-    const rec = eng().record(profile.currentName);
+    const rec = engine.record(profile.currentName);
     recorderRef.current = rec || null;
     setTimeout(() => setRecording(false), 400); // engine handles actual stop; badge just pulses
   };
@@ -215,7 +220,7 @@ export default function App() {
   const onBgImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      eng().importBgImage(f);
+      eng()?.importBgImage(f);
       setCamPaused(true);
       setBgImageActive(true);
     }

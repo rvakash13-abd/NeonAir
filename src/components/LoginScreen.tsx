@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { friendlyAuthError } from '../hooks/useAuth';
 import AnimatedShaderBackground from './Animatedshaderbackground';
+import Razorpay from './TestRazorpayUI';
 
 type Mode = 'login' | 'signup';
 
@@ -101,6 +102,7 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
     <div className="absolute inset-0 z-[60] overflow-hidden flex items-center justify-center">
       <AnimatedShaderBackground className="opacity-90" />
       <div className="pointer-events-none absolute inset-0 bg-black/10" />
+      
 
       <div className="relative z-10 w-full max-w-4xl px-6 md:px-10 py-8 grid md:grid-cols-[1fr_1fr] gap-10 items-center">
         {/* ── brand side ── */}
@@ -170,7 +172,7 @@ export default function LoginScreen({ onLogin, onSignup, onLoginWithGoogle, onRe
             <GoogleIcon />
             {googleBusy ? 'Connecting…' : 'Continue with Google'}
           </button>
-
+          <Razorpay/>
           <div className="flex items-center gap-3 my-5">
             <div className="h-px flex-1 bg-white/10" />
             <span className="text-[10.5px] font-semibold text-white/30 uppercase tracking-wide">or with email</span>
