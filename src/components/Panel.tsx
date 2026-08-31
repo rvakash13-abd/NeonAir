@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Menu,
   Pencil,
-  Minus,
+  Slash,
   Circle,
   Square,
   PaintBucket,
@@ -15,14 +15,16 @@ import {
   Image as ImageIcon,
   Camera,
   Paintbrush,
-  ArrowLeftRight,
+  FlipHorizontal2,
   Download,
   Play,
-  Disc,
+  Video,
   Sun,
   Moon,
   Sparkles,
   Plus,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import type { Color, ToolType } from '../lib/engine';
 
@@ -43,7 +45,7 @@ const SWATCHES: Color[] = [
 
 const TOOLS: { id: ToolType; label: string; Icon: typeof Pencil }[] = [
   { id: 'freehand', label: 'Freehand', Icon: Pencil },
-  { id: 'line', label: 'Line', Icon: Minus },
+  { id: 'line', label: 'Line', Icon: Slash },
   { id: 'circle', label: 'Circle', Icon: Circle },
   { id: 'rect', label: 'Rectangle', Icon: Square },
   { id: 'fill', label: 'Fill', Icon: PaintBucket },
@@ -143,8 +145,13 @@ export default function Panel(p: Props) {
     title?: string;
   }) {
     return (
+<<<<<<< HEAD
       <button type="button" className={'ibtn-labeled' + (active ? ' active' : '')} onClick={onClick} title={title || label}>
         <Icon size={15} strokeWidth={2} />
+=======
+      <div className={'ibtn-labeled' + (active ? ' active' : '')} onClick={onClick} title={title || label}>
+        <Icon size={18} strokeWidth={2} />
+>>>>>>> e0aba974f6c66f3fdac8ba74dcfa332844538e6a
         {expanded && <span>{label}</span>}
       </button>
     );
@@ -153,13 +160,13 @@ export default function Panel(p: Props) {
   return (
     <div className={'panel' + (p.collapsed ? ' collapsed' : '') + (expanded ? ' expanded' : '')}>
       <div className="panel-scroll-btn top" title="Scroll up" onPointerDown={() => startScroll(-1)} onPointerUp={stopScroll} onPointerLeave={stopScroll} onPointerCancel={stopScroll}>
-        ▲
+        <ChevronUp size={18} />
       </div>
 
       <div className="panel-scroll-inner" ref={scrollRef}>
         {/* hamburger + current-mode readout */}
         <div className="panel-header" onClick={() => setExpanded((v) => !v)} title="Toggle labels">
-          <Menu size={16} />
+          <Menu size={20} />
           {expanded && (
             <div className="panel-header-status">
               <span
@@ -190,7 +197,7 @@ export default function Panel(p: Props) {
             title="Custom color"
             onClick={() => customInputRef.current?.click()}
           >
-            {!isCustomColor && <Plus size={12} color="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }} />}
+            {!isCustomColor && <Plus size={14} color="#fff" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }} />}
           </div>
           <input
             ref={customInputRef}
@@ -249,7 +256,7 @@ export default function Panel(p: Props) {
         </div>
         <div className={expanded ? undefined : 'ibtn-row'}>
           <Row Icon={Paintbrush} label="White canvas mode" active={p.canvasMode} onClick={p.onCanvasMode} />
-          <Row Icon={ArrowLeftRight} label="Flip camera bubble" onClick={p.onPipFlip} />
+          <Row Icon={FlipHorizontal2} label="Flip camera bubble" onClick={p.onPipFlip} />
         </div>
         <div className={expanded ? undefined : 'ibtn-row'}>
           <Row Icon={Download} label="Export PNG" onClick={p.onExport} />
@@ -257,15 +264,15 @@ export default function Panel(p: Props) {
         </div>
         <div className={expanded ? undefined : 'ibtn-row'}>
           <Row Icon={Play} label="Replay drawing" onClick={p.onReplay} />
-          <Row Icon={Disc} label="Record video" active={p.recording} onClick={p.onRecord} />
+          <Row Icon={Video} label="Record video" active={p.recording} onClick={p.onRecord} />
         </div>
 
         <div className="sep" />
-        <Row Icon={p.theme === 'light' ? Sun : Moon} label={p.theme === 'light' ? 'Light theme' : 'Dark theme'} onClick={p.onTheme} />
+        <Row Icon={p.theme === 'light' ? Moon : Sun} label={p.theme === 'light' ? 'Switch to dark' : 'Switch to light'} onClick={p.onTheme} />
       </div>
 
       <div className="panel-scroll-btn bottom" title="Scroll down" onPointerDown={() => startScroll(1)} onPointerUp={stopScroll} onPointerLeave={stopScroll} onPointerCancel={stopScroll}>
-        ▼
+        <ChevronDown size={18} />
       </div>
     </div>
   );

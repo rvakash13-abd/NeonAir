@@ -22,10 +22,10 @@ export function NicknameScreen({ onContinue }: { onContinue: (nickname: string) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-[62] bg-[#050608] flex flex-col items-center justify-center gap-4 px-6"
+      className="absolute inset-0 z-[62] bg-[#f2f5ff] flex flex-col items-center justify-center gap-5 px-6"
     >
-      <div className="font-display italic text-3xl text-white">One more thing</div>
-      <div className="text-[12.5px] text-white/45 text-center max-w-xs leading-relaxed">
+      <div className="font-display italic text-3xl text-[#1c2440]">One more thing</div>
+      <div className="text-[13px] text-[#1c2440]/55 text-center max-w-xs leading-relaxed">
         What should we call you? This is shown instead of your email around the app.
       </div>
       <input
@@ -40,7 +40,7 @@ export function NicknameScreen({ onContinue }: { onContinue: (nickname: string) 
       <button className="auth-submit max-w-[220px]" onClick={go} disabled={busy}>
         Continue
       </button>
-      <div className="text-[11px] text-white/40 min-h-[14px]">{status}</div>
+      <div className="text-[11px] text-[#1c2440]/40 min-h-[14px]">{status}</div>
     </motion.div>
   );
 }
@@ -59,15 +59,12 @@ export function WelcomeScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-[62] bg-[#050608] flex flex-col items-center justify-center gap-4 px-6"
+      className="absolute inset-0 z-[62] bg-[#f2f5ff] flex flex-col items-center justify-center gap-5 px-6"
     >
-      <div
-        className="font-display italic text-3xl bg-clip-text text-transparent text-center"
-        style={{ backgroundImage: 'linear-gradient(90deg, #00dcff, #b450ff)' }}
-      >
+      <div className="font-display italic text-3xl text-center text-[#ff6b4a]">
         Welcome to Scribble Air Draw{nickname ? `, ${nickname}` : ''}!
       </div>
-      <div className="text-[12.5px] text-white/45 text-center max-w-xs">
+      <div className="text-[13px] text-[#1c2440]/55 text-center max-w-xs">
         {isNew
           ? "Your account is set up — let's get drawing in the air."
           : 'Great to see you again — your drawings are right where you left them.'}
@@ -85,35 +82,22 @@ export function LoadOverlay({ pct, msg }: { pct: number; msg: string }) {
       <motion.div
         exit={{ opacity: 0 }}
         transition={{ duration: 0.6 }}
-        className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center gap-[18px]"
+        className="absolute inset-0 z-50 bg-[#e9eeff] flex flex-col items-center justify-center gap-[18px]"
       >
-        <div className="w-[38px] h-[38px] rounded-full border-[3px] border-white/[0.07] border-t-cyan-neon animate-spin" />
-        <div className="font-display italic text-2xl text-[#00dcff]" style={{ textShadow: '0 0 30px rgba(0,220,255,0.5)' }}>
+        <div className="w-[42px] h-[42px] rounded-full border-[3px] border-[#1c2440]/10 border-t-[#ff6b4a] animate-spin" />
+        <div className="font-display italic text-2xl text-[#ff6b4a]" style={{ textShadow: '0 0 30px rgba(255,107,74,0.35)' }}>
           Scribble Air Draw
         </div>
-        <div className="w-[200px] h-[3px] bg-white/[0.08] rounded overflow-hidden">
+        <div className="w-[200px] h-[4px] bg-[#1c2440]/10 rounded overflow-hidden">
           <motion.div
-            className="h-full rounded bg-[#00dcff]"
-            style={{ boxShadow: '0 0 8px rgba(0,220,255,0.6)' }}
+            className="h-full rounded bg-[#7c5cf6]"
+            style={{ boxShadow: '0 0 8px rgba(124,92,246,0.5)' }}
             animate={{ width: pct + '%' }}
             transition={{ duration: 0.4 }}
           />
         </div>
-        <div className="text-[12px] text-white/40 tracking-wide text-center max-w-[280px]">{msg}</div>
+        <div className="text-[12px] text-[#1c2440]/50 tracking-wide text-center max-w-[280px]">{msg}</div>
       </motion.div>
     </AnimatePresence>
-  );
-}
-
-export function ConfigMissingScreen() {
-  return (
-    <div className="absolute inset-0 z-[65] bg-black flex flex-col items-center justify-center gap-3.5 px-6">
-      <div className="font-display italic text-2xl text-[#ff5050]" style={{ textShadow: '0 0 20px rgba(255,80,80,0.5)' }}>
-        Setup needed
-      </div>
-      <div className="text-[12.5px] text-white/45 text-center max-w-sm leading-relaxed">
-        Firebase authentication is not configured. Check the Firebase project settings and reload the app.
-      </div>
-    </div>
   );
 }

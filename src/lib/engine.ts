@@ -37,6 +37,9 @@ export interface EngineCallbacks {
   onZoomFlash: (pct: number) => void;
   onStrokesChanged: () => void; // fired on any commit/undo/clear/drag -> caller should debounce-save
   onDot: (show: boolean, x: number, y: number, size: number, color: string, glow: string) => void;
+  // Fired when the camera auto-hibernates (idle) and when it wakes back up.
+  onCamIdle?: () => void;
+  onCamWake?: () => void;
 }
 
 const SMOOTH = 5;
@@ -44,6 +47,8 @@ const PEACE_CONFIRM_FRAMES = 4;
 const HAND_MISS_GRACE_FRAMES = 6;
 const UP_FRACTION = 0.22;
 const DEFAULT_HINT = '🖐 Draw (any finger)  |  ✌️ Move/Pan';
+// No hand in frame for this long → release the webcam (privacy + battery).
+const IDLE_CAMERA_OFF_MS = 45_000;
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -133,6 +138,10 @@ export class DrawEngine {
   camera: any = null;
   stream: MediaStream | null = null;
   destroyed = false;
+  // True while the camera is hibernated (idle timeout or leaving the canvas).
+  cameraOffForIdle = false;
+  // Timestamp of the last frame that actually saw a hand. 0 = never seen one.
+  lastHandSeen = 0;
 
   constructor(
     bgCanvas: HTMLCanvasElement,
@@ -813,7 +822,7 @@ export class DrawEngine {
   }
 
   onResults = (results: any) => {
-    if (this.destroyed) return;
+    if (this.destroyed || this.cameraOffForIdle) return;
     if (!this.mpReady) {
       this.mpReady = true;
       this.cb.onReady();
@@ -865,9 +874,13 @@ export class DrawEngine {
       this.confirmedGesture = 'none';
       this.peaceStreak = 0;
       this.fillTriggered = false;
+      if (this.lastHandSeen > 0 && Date.now() - this.lastHandSeen >= IDLE_CAMERA_OFF_MS) {
+        this.hibernate();
+      }
       return;
     }
     this.handMissStreak = 0;
+    this.lastHandSeen = Date.now();
 
     const lm = detected[0];
     const rawX = (1 - lm[8].x) * W;
@@ -1024,7 +1037,51 @@ export class DrawEngine {
     this.cb.onHint(DEFAULT_HINT);
   };
 
+  // Releases the webcam entirely (idle timeout, or the user left the canvas /
+  // opened the admin page). The frame loop stops, so waking needs a tap or a
+  // route back into the studio via resumeCamera().
+  hibernate() {
+    if (this.cameraOffForIdle || this.destroyed) return;
+    this.cameraOffForIdle = true;
+    this.confirmedGesture = 'none';
+    this.peaceStreak = 0;
+    try {
+      this.camera?.stop?.();
+    } catch {}
+    try {
+      this.stream?.getTracks().forEach((t) => t.stop());
+    } catch {}
+    this.stream = null;
+    this.cam.srcObject = null;
+    this.cb.onCamIdle?.();
+  }
+
+  async resumeCamera() {
+    if (!this.cameraOffForIdle || this.destroyed) return true;
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+    } catch {
+      return false;
+    }
+    this.cam.srcObject = this.stream;
+    try {
+      await this.cam.play();
+    } catch {}
+    this.cameraOffForIdle = false;
+    this.lastHandSeen = Date.now();
+    try {
+      await this.camera?.start?.();
+    } catch {}
+    this.cb.onCamWake?.();
+    if (!this.camPaused) this.cb.onHint(DEFAULT_HINT);
+    return true;
+  }
+
   async start() {
+    this.cameraOffForIdle = false;
+    this.lastHandSeen = 0;
     this.cb.onProgress(5, 'Loading MediaPipe camera utils…');
     try {
       await loadScriptWithFallbacks([

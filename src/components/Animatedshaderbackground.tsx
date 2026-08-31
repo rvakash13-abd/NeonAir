@@ -63,10 +63,10 @@ float clouds(vec2 p) {
 void main(void) {
 	vec2 uv=(FC-.5*R)/MN,st=uv*vec2(2,1);
 	vec3 col=vec3(0);
-  // palette: deep navy base -> coral #ff8a5b (use coral for sparks)
-  vec3 coral=vec3(1.0,0.541,0.357);
-  vec3 violet=coral;
-	vec3 navy=vec3(0.039,0.055,0.102);
+  // palette: soft periwinkle base -> coral (#ff6b4a) + sky violet sparks
+  vec3 coral=vec3(1.0,0.42,0.29);
+  vec3 violet=vec3(0.49,0.36,0.96);
+	vec3 base=vec3(0.93,0.96,1.0);
 
 	// gentle pointer influence: nudges the field toward the cursor/touch
 	vec2 mv=move*0.00035;
@@ -87,7 +87,7 @@ void main(void) {
 		col+=.00125/d*(spark+.15)*(1.0+touchPull*0.6);
 		float b=noise(i+p+bg*1.731);
 		col+=.0022*b/length(max(p,vec2(b*p.x*.02,p.y)))*mix(coral,violet,b);
-		col=mix(col,navy+bg*vec3(0.12,0.08,0.16),d*.85);
+		col=mix(col,base+bg*vec3(0.06,0.05,0.04),d*.85);
 	}
 	O=vec4(col,1);
 }`;
@@ -167,7 +167,7 @@ class WebGLRenderer {
     const gl = this.gl;
     const program = this.program;
     if (!program || gl.getProgramParameter(program, gl.DELETE_STATUS)) return;
-    gl.clearColor(0.039, 0.055, 0.102, 1);
+    gl.clearColor(0.93, 0.96, 1.0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(program);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
@@ -301,7 +301,7 @@ export default function AnimatedShaderBackground({ className = '' }: Props) {
     <canvas
       ref={canvasRef}
       className={`absolute inset-0 w-full h-full object-contain touch-none ${className}`}
-      style={{ background: '#0a0e1a' }}
+      style={{ background: '#e9eeff' }}
     />
   );
 }
