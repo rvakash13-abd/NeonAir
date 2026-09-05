@@ -235,77 +235,84 @@ export default function App() {
   }
 
   // ── panel handlers ──
-<<<<<<< HEAD
   const eng = () => engineRef.current;
-  const onColor = (c: Color) => { setColorState(c); setIsEraser(false); eng()?.setColor(c); };
-  const onTool = (t: ToolType) => { setToolState(t); setIsEraser(false); eng()?.setTool(t); };
-  const onSize = (v: number) => { setSizeState(v); eng()?.setSize(v); };
-  const onEraserToggle = () => { const engine = eng(); if (engine) setIsEraser(engine.toggleEraser()); };
-  const onGradientToggle = () => { const engine = eng(); if (engine) setGradientOn(engine.toggleGradient()); };
-  const onUndo = () => eng()?.undo();
-  const onClear = () => eng()?.clear();
-  const onZoomIn = () => eng()?.zoomBy(1.25);
-  const onZoomOut = () => eng()?.zoomBy(0.8);
-  const onZoomReset = () => eng()?.zoomReset();
-  const onCamToggle = () => { const engine = eng(); if (engine) setCamPaused(engine.toggleCamPause()); };
-  const onCanvasModeToggle = () => { const engine = eng(); if (engine) setCanvasMode(engine.toggleCanvasMode()); };
-  const onPipFlip = () => eng()?.flipPip();
-  const onTransparentToggle = () => { const engine = eng(); if (engine) setTransparentExport(engine.toggleTransparentExport()); };
-  const onExport = () => eng()?.exportPNG(profile.currentName);
-  const onPickTemplate = async (tpl: Template) => {
-    const engine = eng();
-    if (!engine) return;
-    await engine.setBgImageFromUrl(tpl.url);
-=======
-  const eng = () => engineRef.current!;
-  // Feature gate: returns true when the feature is unlocked; otherwise it
-  // opens the plan modal with a reason and returns false (blocking the action).
   const gate = (feature: keyof Features, reason: string): boolean => {
     if (profile.features[feature]) return true;
     setPlanReason(reason);
     setModal('plan');
     return false;
   };
-  const onColor = (c: Color) => { eng().setColor(c); setColorState(c); setIsEraser(false); };
-  const onTool = (t: ToolType) => { eng().setTool(t); setToolState(t); setIsEraser(false); };
-  const onSize = (v: number) => { eng().setSize(v); setSizeState(v); };
-  const onEraserToggle = () => setIsEraser(eng().toggleEraser());
-  const onGradientToggle = () => setGradientOn(eng().toggleGradient());
-  const onUndo = () => eng().undo();
-  const onClear = () => eng().clear();
-  const onZoomIn = () => eng().zoomBy(1.25);
-  const onZoomOut = () => eng().zoomBy(0.8);
-  const onZoomReset = () => eng().zoomReset();
-  const onCamToggle = () => setCamPaused(eng().toggleCamPause());
-  const onCanvasModeToggle = () => setCanvasMode(eng().toggleCanvasMode());
-  const onPipFlip = () => eng().flipPip();
+  const onColor = (c: Color) => {
+    const engine = eng();
+    if (!engine) return;
+    setColorState(c);
+    setIsEraser(false);
+    engine.setColor(c);
+  };
+  const onTool = (t: ToolType) => {
+    const engine = eng();
+    if (!engine) return;
+    setToolState(t);
+    setIsEraser(false);
+    engine.setTool(t);
+  };
+  const onSize = (v: number) => {
+    const engine = eng();
+    if (!engine) return;
+    setSizeState(v);
+    engine.setSize(v);
+  };
+  const onEraserToggle = () => {
+    const engine = eng();
+    if (!engine) return;
+    setIsEraser(engine.toggleEraser());
+  };
+  const onGradientToggle = () => {
+    const engine = eng();
+    if (!engine) return;
+    setGradientOn(engine.toggleGradient());
+  };
+  const onUndo = () => eng()?.undo();
+  const onClear = () => eng()?.clear();
+  const onZoomIn = () => eng()?.zoomBy(1.25);
+  const onZoomOut = () => eng()?.zoomBy(0.8);
+  const onZoomReset = () => eng()?.zoomReset();
+  const onCamToggle = () => {
+    const engine = eng();
+    if (!engine) return;
+    setCamPaused(engine.toggleCamPause());
+  };
+  const onCanvasModeToggle = () => {
+    const engine = eng();
+    if (!engine) return;
+    setCanvasMode(engine.toggleCanvasMode());
+  };
+  const onPipFlip = () => eng()?.flipPip();
   const onTransparentToggle = () => {
     if (!gate('export_transparent', 'Unlock transparent PNG export with Pro.')) return;
-    setTransparentExport(eng().toggleTransparentExport());
+    const engine = eng();
+    if (!engine) return;
+    setTransparentExport(engine.toggleTransparentExport());
   };
-  const onExport = () => eng().exportPNG(profile.currentName);
+  const onExport = () => eng()?.exportPNG(profile.currentName);
   const onPickTemplate = async (tpl: Template) => {
     if (!gate('templates', 'Unlock the trace template library with Pro.')) return;
-    await eng().setBgImageFromUrl(tpl.url);
->>>>>>> e0aba974f6c66f3fdac8ba74dcfa332844538e6a
+    const engine = eng();
+    if (!engine) return;
+    await engine.setBgImageFromUrl(tpl.url);
     setCamPaused(true);
     setBgImageActive(true);
   };
   const onRemoveBgImage = () => {
-    eng()?.clearBgImage();
+    const engine = eng();
+    if (!engine) return;
+    engine.clearBgImage();
     setCamPaused(false);
     setBgImageActive(false);
   };
-<<<<<<< HEAD
-  const onReplay = () => eng()?.replay();
-  const onRecord = () => {
-    if (recording) return;
-    const engine = eng();
-    if (!engine) return;
-=======
   const onReplay = () => {
     if (!gate('replay', 'Unlock drawing replay with Pro.')) return;
-    eng().replay();
+    eng()?.replay();
   };
   const wakeCamera = async () => {
     const engine = engineRef.current;
@@ -318,7 +325,8 @@ export default function App() {
   const onRecord = () => {
     if (recording) return;
     if (!gate('record', 'Unlock recording your drawing with Pro.')) return;
->>>>>>> e0aba974f6c66f3fdac8ba74dcfa332844538e6a
+    const engine = eng();
+    if (!engine) return;
     setRecording(true);
     const rec = engine.record(profile.currentName);
     recorderRef.current = rec || null;

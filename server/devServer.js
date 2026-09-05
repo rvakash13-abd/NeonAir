@@ -6,7 +6,7 @@
 import { createServer } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.NEON_DEV_API_PORT || 8787);
@@ -92,7 +92,7 @@ const routes = [];
 async function mount(segments, file) {
   const abs = path.join(rootDir, 'api', file);
   try {
-    const mod = await import(abs);
+    const mod = await import(pathToFileURL(abs).href);
     routes.push({ segments, handler: mod.default, file });
   } catch (err) {
     console.warn('[dev-api] could not load', abs, '—', err.message);

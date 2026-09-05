@@ -145,13 +145,8 @@ export default function Panel(p: Props) {
     title?: string;
   }) {
     return (
-<<<<<<< HEAD
       <button type="button" className={'ibtn-labeled' + (active ? ' active' : '')} onClick={onClick} title={title || label}>
         <Icon size={15} strokeWidth={2} />
-=======
-      <div className={'ibtn-labeled' + (active ? ' active' : '')} onClick={onClick} title={title || label}>
-        <Icon size={18} strokeWidth={2} />
->>>>>>> e0aba974f6c66f3fdac8ba74dcfa332844538e6a
         {expanded && <span>{label}</span>}
       </button>
     );
